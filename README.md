@@ -1,6 +1,6 @@
 <h1>
 Circuit Vis
-<\h1>
+</h1>
 
 Steps to start docker container:
 --------------------------------
