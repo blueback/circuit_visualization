@@ -1,0 +1,16 @@
+# docker run --name circuit_visualization_run -p 22:22 --rm -d -it -v "${PWD}:/usr/src/circuit_visualization:cached" circuit_visualization:1
+version: '1'
+services:
+  circuit_visualization_run:
+    image: circuit_visualization
+    build:
+      context: .
+      no_cache: false
+    container_name: circuit_visualization_run
+    ports:
+      - "1027:1027"
+    volumes:
+      - ${PWD}:${PWD}
+    attach: false
+    tty: true
+    working_dir: ${PWD}

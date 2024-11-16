@@ -1,0 +1,11 @@
+/build/
+*.o
+*.out
+*.gcov
+*.swp
+*.swo
+/coverage/lcov.info
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+/.cache/
