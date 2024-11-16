@@ -1,4 +1,4 @@
-<h1>
+<h1 align="center">
 Circuit Vis
 </h1>
 
