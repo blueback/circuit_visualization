@@ -1,5 +1,5 @@
 <h1 align="center">
-Circuit Vis
+Circuit Visualization
 </h1>
 
 Steps to start docker container:
