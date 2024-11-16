@@ -9,6 +9,10 @@ Steps to start docker container:
         dockerd-rootless-setup.sh install
         docker compose up -d
 
+    a. To build fresh while creating container
+
+        docker compose up -d --build
+
 2. enter through bash
 
         docker exec -it circuit_visualization_run
