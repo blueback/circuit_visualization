@@ -2,6 +2,8 @@ FROM gcc:latest
 
 RUN apt-get -y update && apt-get install -y
 
+RUN apt-get -y install build-essential
+
 RUN apt-get -y install gdb
 
 RUN apt-get -y install make cmake 
