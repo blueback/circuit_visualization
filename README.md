@@ -15,7 +15,7 @@ Steps to start docker container:
 
 2. enter through bash
 
-        docker exec -it circuit_visualization_run
+        docker exec -it circuit_visualization_run sh
 
 3. build inside container using:
 
@@ -30,19 +30,19 @@ Steps to start docker container:
 If you want to directly build it without entering the container:
 ----------------------------------------------------------------
 
-after creating container using:
+1. after creating container using:
 
-    dockerd-rootless-setup.sh install
-    docker compose up -d
+        dockerd-rootless-setup.sh install
+        docker compose up -d
 
-run:-
+2. run:-
 
-    docker exec circuit_visualization_run ./configure.sh
+        docker exec circuit_visualization_run ./configure.sh
 
-then delete container using:
+3. then delete container using:
 
-    docker compose down
-    dockerd-rootless-setup.sh uninstall
+        docker compose down
+        dockerd-rootless-setup.sh uninstall
 
 
 TODO list:
