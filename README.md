@@ -17,6 +17,10 @@ Steps to start docker container:
 
         docker exec -it circuit_visualization_run sh
 
+    or
+
+        docker exec -it circuit_visualization_run su root
+
 3. build inside container using:
 
         ./configure.sh
