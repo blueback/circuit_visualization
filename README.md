@@ -30,6 +30,10 @@ Steps to start docker container:
         docker compose down
         dockerd-rootless-setup.sh uninstall
 
+5. To delete the container for good!:-
+
+        docker rm circuit_visualization_run
+
 
 If you want to directly build it without entering the container:
 ----------------------------------------------------------------
