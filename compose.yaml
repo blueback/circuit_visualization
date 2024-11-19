@@ -8,7 +8,7 @@ services:
       no_cache: false
     container_name: circuit_visualization_run
     ports:
-      - "1027:1027"
+      - "5902:5902"
     volumes:
       - ${PWD}:${PWD}
     attach: false

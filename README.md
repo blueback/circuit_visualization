@@ -2,56 +2,71 @@
 Circuit Visualization
 </h1>
 
-Steps to start docker container:
---------------------------------
-1. Start the docker rootless using following 
+Steps to start docker container
+-------------------------------
+1. Start rootless docker deamon:-
 
         dockerd-rootless-setup.sh install
+
+2. Start docker container:-
+
         docker compose up -d
 
     a. To build fresh while creating container
 
         docker compose up -d --build
 
-2. enter through bash
-
-        docker exec -it circuit_visualization_run sh
-
-    or
+3. Enter container:-
 
         docker exec -it circuit_visualization_run su root
 
-3. build inside container using:
+Steps to start VNC-Raylib
+-------------------------
+1. Download and build raylib/turboVNC:-
+
+        cd third_party
+        ./build_vnc_raylib.sh
+        cd ..
+
+2. Start vncserver at port 5902:-
+
+        cd third_party
+        source vnc_start.sh
+        cd ..
+
+3. Run raylib example:-
+
+        cd third_party/raylib/build/examples
+        ./core_3d_camera_first_person
+        cd ../../../..
+
+To build circuit visualization applicaiton
+------------------------------------------
+Build application inside container using:
 
         ./configure.sh
 
-4. stop docker
+Steps to stop VNC
+-----------------
+1. Stop vncserver:-
+
+        cd third_party
+        source vnc_stop.sh
+        cd ..
+
+Steps to stop docker container
+-------------------------------
+1. Stop docker container:-
 
         docker compose down
+
+2. Stop docker deamon:-
+
         dockerd-rootless-setup.sh uninstall
 
-5. To delete the container for good!:-
+3. To delete the container for good!:-
 
         docker rm circuit_visualization_run
-
-
-If you want to directly build it without entering the container:
-----------------------------------------------------------------
-
-1. after creating container using:
-
-        dockerd-rootless-setup.sh install
-        docker compose up -d
-
-2. run:-
-
-        docker exec circuit_visualization_run ./configure.sh
-
-3. then delete container using:
-
-        docker compose down
-        dockerd-rootless-setup.sh uninstall
-
 
 TODO list:
 ----------
