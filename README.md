@@ -68,6 +68,13 @@ Steps to stop docker container
 
         docker rm circuit_visualization_run
 
+NOTE: To enable TCP port 5902
+-----------------------
+Run these in the host machine
+
+    sudo ufw allow 5901/tcp
+    sudo ufw status
+
 TODO list:
 ----------
 - modularize inline decisions.
