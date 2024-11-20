@@ -31,6 +31,17 @@ target_include_directories(circuit_solver
 target_include_directories(circuit_solver
 	AFTER PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(circuit_solver
+	AFTER PRIVATE
+	${CMAKE_SOURCE_DIR}/third_party/usr/local/include)
+
+
+##################################################
+# Append link directories
+#
+target_link_directories(circuit_solver
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/usr/local/lib)
 
 
 ##################################################
@@ -47,8 +58,8 @@ target_compile_options(
 # Define circuit solver link libraries
 #
 set(CIRCUIT_SOLVER_LINK_LIBRARIES
-	"$<$<CONFIG:Debug>:>"
-	"$<$<CONFIG:Release>:>"
+    "$<$<CONFIG:Debug>:raylib>"
+    "$<$<CONFIG:Release>:raylib>"
 )
 
 
