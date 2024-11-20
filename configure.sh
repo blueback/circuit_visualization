@@ -13,4 +13,4 @@ cmake -H. -Bbuild \
 	-DCMAKE_CXX_COMPILER=${GPP_11} \
 	-DCMAKE_BUILD_TYPE=Debug
 
-make -Cbuild -j 28
+make -Cbuild -j28

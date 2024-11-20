@@ -9,7 +9,7 @@ set(SRC_ROOT_INCLUDE_DIR
 # Subdirectories for src
 #
 add_subdirectory(circuit_solver)
-#add_subdirectory(subdir1)
+add_subdirectory(raylib_probe)
 #add_subdirectory(subdir2)
 
 
@@ -30,11 +30,28 @@ target_include_directories(circuit_vis
 	${CMAKE_CURRENT_SOURCE_DIR})
 
 
+##################################################
+# Append link directories
+#
+target_link_directories(circuit_vis
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/usr/local/lib)
+
+
+##################################################
+# Define link libraries
+#
+set(CIRCUIT_VIS_LIBRARIES
+    "$<$<CONFIG:Debug>:circuit_solver>"
+    "$<$<CONFIG:Release>:circuit_solver>"
+    "$<$<CONFIG:Debug>:raylib_probe>"
+    "$<$<CONFIG:Release>:raylib_probe>"
+)
+
+
 ####################################################################
 # link libraries
 #
-set(CIRCUIT_VIS_LIBRARIES 
-	circuit_solver)
 target_link_libraries(circuit_vis
 	PRIVATE
     ${CIRCUIT_VIS_LIBRARIES})

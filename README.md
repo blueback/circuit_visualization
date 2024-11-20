@@ -40,6 +40,16 @@ Steps to start VNC-Raylib
         ./core_3d_camera_first_person
         cd ../../../..
 
+4. Install raylib inside third_party:-
+
+        cd third_party/raylib/build
+        DESTDIR=../../. make install
+        cd ../../..
+
+    The distribution will then be installed at:
+
+        find third_party/usr/local
+
 To build circuit visualization applicaiton
 ------------------------------------------
 Build application inside container using:
