@@ -9,3 +9,6 @@
 __pycache__/
 *.py[cod]
 /.cache/
+/third_party/raylib/
+/third_party/turbovnc/
+/third_party/libjpeg-turbo/
