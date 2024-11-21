@@ -3,28 +3,92 @@
 #include "raymath.h"
 #include <vector>
 
-void CircuitSolver::inputLayer(std::vector<Vector2> &input_positions) {
+void CircuitSolver::constantLayer(void) {
 
-  Vector2 input_start_position = (Vector2){100.0f, 200.0f};
-  Vector2 next_input_position_distance = (Vector2){100.0f, 0.0f};
-  Vector2 curr_position = input_start_position;
+  Vector2 start_position = (Vector2){100.0f, 300.0f};
+  Vector2 next_position_distance = (Vector2){200.0f, 0.0f};
+  Vector2 curr_position = start_position;
 
   for (size_t i = 0; i < INPUT_DEGREE; i++) {
-    curr_position = Vector2Add(curr_position, next_input_position_distance);
-    input_positions.push_back(curr_position);
+    curr_position = Vector2Add(curr_position, next_position_distance);
+    constant_layer_positions.push_back(curr_position);
   }
 }
 
-void CircuitSolver::firstAdderLayer(
-    std::vector<Vector2> &first_adder_layer_positions) {
+void CircuitSolver::adderLayer(void) {
 
   Vector2 start_position = (Vector2){150.0f, 400.0f};
-  Vector2 next_position_distance = (Vector2){100.0f, 0.0f};
+  Vector2 next_position_distance = (Vector2){200.0f, 0.0f};
+  Vector2 curr_position = start_position;
+
+  for (size_t i = 0; i < INPUT_DEGREE; i++) {
+    curr_position = Vector2Add(curr_position, next_position_distance);
+    adder_layer_positions.push_back(curr_position);
+  }
+}
+
+void CircuitSolver::multiplierLayers(void) {
+
+  Vector2 start_position = (Vector2){250.0f, 500.0f};
+  Vector2 next_position_distance = (Vector2){200.0f, 100.0f};
   Vector2 curr_position = start_position;
 
   for (size_t i = 0; i < INPUT_DEGREE - 1; i++) {
     curr_position = Vector2Add(curr_position, next_position_distance);
-    first_adder_layer_positions.push_back(curr_position);
+    multiplier_layer_positions.push_back(curr_position);
+  }
+}
+
+void CircuitSolver::drawCircuit(void) {
+  DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
+  for (size_t i = 0; i < constant_layer_positions.size(); i++) {
+    Vector2 top_mid_position =
+        Vector2Add(constant_layer_positions[i], {100.0f, NODE_RADIUS});
+    Vector2 bottom_mid_position =
+        Vector2Add(constant_layer_positions[i], {100.0f, -(4 * NODE_RADIUS)});
+    Vector2 points[4] = {input_position, top_mid_position, bottom_mid_position,
+                         adder_layer_positions[i]};
+    DrawSplineBezierCubic(points, 4, 3.0f, YELLOW);
+  }
+
+  for (size_t i = 0; i < adder_layer_positions.size(); i++) {
+    DrawLineEx(constant_layer_positions[i], adder_layer_positions[i], 5.0f,
+               YELLOW);
+  }
+
+  for (size_t i = 0; i < multiplier_layer_positions.size(); i++) {
+    if (i == 0) {
+      DrawLineEx(adder_layer_positions[i], multiplier_layer_positions[i], 3.0f,
+                 YELLOW);
+    } else {
+      DrawLineEx(multiplier_layer_positions[i - 1],
+                 multiplier_layer_positions[i], 3.0f, YELLOW);
+    }
+    DrawLineEx(adder_layer_positions[i + 1], multiplier_layer_positions[i],
+               3.0f, YELLOW);
+  }
+
+  DrawCircleV(input_position, NODE_RADIUS, DARKGREEN);
+  DrawText("x", input_position.x - 15, input_position.y - 25, 50.0f, YELLOW);
+
+  for (size_t i = 0; i < constant_layer_positions.size(); i++) {
+    DrawCircleV(constant_layer_positions[i], NODE_RADIUS, DARKGREEN);
+    char buf[21];
+    sprintf(buf, "%lu", i + 1);
+    DrawText(buf, constant_layer_positions[i].x - 15,
+             constant_layer_positions[i].y - 25, 50.0f, YELLOW);
+  }
+
+  for (size_t i = 0; i < adder_layer_positions.size(); i++) {
+    DrawCircleV(adder_layer_positions[i], NODE_RADIUS, RED);
+    DrawText("+", adder_layer_positions[i].x - 15,
+             adder_layer_positions[i].y - 25, 50.0f, YELLOW);
+  }
+
+  for (auto multiplier_position : multiplier_layer_positions) {
+    DrawCircleV(multiplier_position, NODE_RADIUS, BLUE);
+    DrawText("*", multiplier_position.x - 15, multiplier_position.y - 25, 50.0f,
+             YELLOW);
   }
 }
 
@@ -32,33 +96,38 @@ void CircuitSolver::solve() {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "circuit visualization");
   SetTargetFPS(SCREEN_FPS);
 
-  std::vector<Vector2> input_positions;
-  inputLayer(input_positions);
+  input_position = (Vector2){SCREEN_WIDTH / 2, 50.0f};
+  constantLayer();
+  adderLayer();
+  multiplierLayers();
 
-  std::vector<Vector2> first_adder_layer_positions;
-  firstAdderLayer(first_adder_layer_positions);
+  float zoom = 0.25f;
+  Camera2D camera = {
+      .offset = {.x = SCREEN_WIDTH * zoom, .y = SCREEN_HEIGHT * zoom},
+      .target = {.x = SCREEN_WIDTH * zoom, .y = SCREEN_HEIGHT * zoom},
+      .rotation = 0.0f,
+      .zoom = zoom};
 
   while (!WindowShouldClose()) {
+    if (IsKeyDown(KEY_SPACE)) {
+      camera.zoom += 0.002f;
+    } else if (IsKeyDown(KEY_LEFT_SHIFT)) {
+      camera.zoom -= 0.002f;
+    }
+
+    camera.offset =
+        Vector2Multiply(SCREEN_RESOLUTION, {camera.zoom, camera.zoom});
+    camera.target =
+        Vector2Multiply(SCREEN_RESOLUTION, {camera.zoom, camera.zoom});
+
     BeginDrawing();
     {
       ClearBackground(BLACK);
+      BeginMode2D(camera);
       {
-        DrawCircleV({50.0f, 50.0f}, NODE_RADIUS, ORANGE);
-        for (size_t i = 0; i < input_positions.size(); i++) {
-          DrawCircle(input_positions[i].x, input_positions[i].y, NODE_RADIUS,
-                     GetColor(0xcd5c5c));
-        }
-
-        for (size_t i = 0; i < first_adder_layer_positions.size(); i++) {
-          DrawCircle(first_adder_layer_positions[i].x,
-                     first_adder_layer_positions[i].y, NODE_RADIUS, RED);
-        }
-
-        for (size_t i = 0; i < first_adder_layer_positions.size(); i++) {
-          DrawLineEx(input_positions[i], first_adder_layer_positions[i], 5.0f,
-                     YELLOW);
-        }
+        drawCircuit();
       }
+      EndMode2D();
     }
     EndDrawing();
   }
