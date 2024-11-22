@@ -3,6 +3,28 @@
 #include "raymath.h"
 #include <vector>
 
+void IntegerFactorization::RegularAPCircuit::createCircuit(
+    const uint32_t degree) {
+
+  const uint32_t input_node = addNode(InputNodeType, 0);
+
+  uint32_t prev_multiplier_output = 0;
+  for (uint32_t i = 0; i < degree; i++) {
+    const uint32_t constant = addNode(ConstantType, i + 1);
+    const uint32_t adder = addNode(AdderType, 0);
+    if (i == 0) {
+      prev_multiplier_output = adder;
+    } else {
+      const uint32_t curr_multiplier = addNode(MultiplierType, 0);
+      addEdge(prev_multiplier_output, curr_multiplier);
+      addEdge(adder, curr_multiplier);
+      prev_multiplier_output = curr_multiplier;
+    }
+    addEdge(constant, adder);
+    addEdge(input_node, adder);
+  }
+}
+
 void CircuitSolver::constantLayer(void) {
 
   Vector2 start_position = (Vector2){100.0f, 300.0f};

@@ -1,3 +1,9 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include <cassert>
+#include "stdint.h"
+#include <cmath>
+#include <cstdint>
+#include <functional>
+#include <set>
+#include <vector>
