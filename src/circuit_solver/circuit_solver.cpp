@@ -102,23 +102,22 @@ void CircuitSolver::solve() {
   multiplierLayers();
 
   float zoom = 0.25f;
-  Camera2D camera = {
-      .offset = {.x = SCREEN_WIDTH * zoom, .y = SCREEN_HEIGHT * zoom},
-      .target = {.x = SCREEN_WIDTH * zoom, .y = SCREEN_HEIGHT * zoom},
-      .rotation = 0.0f,
-      .zoom = zoom};
+  Camera2D camera = {.offset = {.x = SCREEN_WIDTH / 2 * (1.0f - zoom),
+                                .y = SCREEN_HEIGHT / 2 * (1.0f - zoom)},
+                     .target = {.x = 0, .y = 0},
+                     .rotation = 0.0f,
+                     .zoom = zoom};
 
   while (!WindowShouldClose()) {
     if (IsKeyDown(KEY_SPACE)) {
-      camera.zoom += 0.002f;
+      camera.zoom += 0.01f;
     } else if (IsKeyDown(KEY_LEFT_SHIFT)) {
-      camera.zoom -= 0.002f;
+      camera.zoom -= 0.01f;
     }
 
-    camera.offset =
-        Vector2Multiply(SCREEN_RESOLUTION, {camera.zoom, camera.zoom});
-    camera.target =
-        Vector2Multiply(SCREEN_RESOLUTION, {camera.zoom, camera.zoom});
+    const float camera_offset_ratio = (1 - camera.zoom) / 2;
+    camera.offset = Vector2Multiply(SCREEN_RESOLUTION,
+                                    {camera_offset_ratio, camera_offset_ratio});
 
     BeginDrawing();
     {
