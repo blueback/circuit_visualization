@@ -1,7 +1,6 @@
 #include "circuit_solver/circuit_solver.hpp"
 #include "raylib.h"
 #include "raymath.h"
-#include <vector>
 
 void IntegerFactorization::RegularAPCircuit::createCircuit(
     const uint32_t degree) {
@@ -114,6 +113,12 @@ void CircuitSolver::drawCircuit(void) {
   }
 }
 
+void CircuitSolver::drawCircuit(CircuitAnimator &circuit_animator,
+                                const float time) {
+  DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
+  circuit_animator.updateCircuitAnimation(time);
+}
+
 void CircuitSolver::solve() {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "circuit visualization");
   SetTargetFPS(SCREEN_FPS);
@@ -123,14 +128,23 @@ void CircuitSolver::solve() {
   adderLayer();
   multiplierLayers();
 
-  float zoom = 0.25f;
+  //float zoom = 0.25f;
+  float zoom = 0.95f;
   Camera2D camera = {.offset = {.x = SCREEN_WIDTH / 2 * (1.0f - zoom),
                                 .y = SCREEN_HEIGHT / 2 * (1.0f - zoom)},
                      .target = {.x = 0, .y = 0},
                      .rotation = 0.0f,
                      .zoom = zoom};
 
+  float curr_frame_time = 0.0f;
+
+  IntegerFactorization::RegularAPCircuit circuit;
+  circuit.createCircuit(4);
+  CircuitAnimator circuit_animator(circuit);
+  circuit_animator.finalizeLayout();
+
   while (!WindowShouldClose()) {
+    curr_frame_time += GetFrameTime();
     if (IsKeyDown(KEY_SPACE)) {
       camera.zoom += 0.01f;
     } else if (IsKeyDown(KEY_LEFT_SHIFT)) {
@@ -146,7 +160,8 @@ void CircuitSolver::solve() {
       ClearBackground(BLACK);
       BeginMode2D(camera);
       {
-        drawCircuit();
+        // drawCircuit();
+        drawCircuit(circuit_animator, curr_frame_time);
       }
       EndMode2D();
     }
