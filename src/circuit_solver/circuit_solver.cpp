@@ -24,6 +24,47 @@ void IntegerFactorization::RegularAPCircuit::createCircuit(
   }
 }
 
+void IntegerFactorization::Opt01Circuit::createCircuit(const uint32_t degree) {
+
+  assert(degree > 2);
+  std::vector<std::vector<uint32_t>> nodes;
+  nodes.resize(degree);
+  for (uint32_t i = 0; i < degree; i++) {
+    nodes[i].resize(degree);
+  }
+
+  for (uint32_t i = 0; i < degree; i++) {
+    const uint32_t input_node = addNode(InputNodeType, 0);
+    nodes[0][i] = input_node;
+  }
+
+  for (uint32_t i = 0; i < degree; i++) {
+    const uint32_t const_node = addNode(ConstantType, i);
+    nodes[1][i] = const_node;
+  }
+
+  for (uint32_t i = 1; i < degree - 1; i++) {
+    for (uint32_t j = 0; j < degree; j++) {
+      const uint32_t adder = addNode(AdderType, 0);
+      nodes[i][j] = adder;
+      for (uint32_t k = 0; k < i; k++) {
+        for (uint32_t l = 0; l < degree; l++) {
+          addEdge(nodes[k][l], adder);
+        }
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < degree; i++) {
+    const uint32_t output = addNode(OutputNodeType, 0);
+    nodes[degree - 1][i] = output;
+    for (uint32_t k = 0; k < degree; k++) {
+      addEdge(nodes[degree - 2][k], output);
+    }
+  }
+  printf("created circuit\n");
+}
+
 void CircuitSolver::constantLayer(void) {
 
   Vector2 start_position = (Vector2){100.0f, 300.0f};
@@ -128,7 +169,7 @@ void CircuitSolver::solve() {
   adderLayer();
   multiplierLayers();
 
-  //float zoom = 0.25f;
+  // float zoom = 0.25f;
   float zoom = 0.95f;
   Camera2D camera = {.offset = {.x = SCREEN_WIDTH / 2 * (1.0f - zoom),
                                 .y = SCREEN_HEIGHT / 2 * (1.0f - zoom)},
@@ -138,10 +179,17 @@ void CircuitSolver::solve() {
 
   float curr_frame_time = 0.0f;
 
+#if 0
   IntegerFactorization::RegularAPCircuit circuit;
-  circuit.createCircuit(4);
+  circuit.createCircuit(14);
   CircuitAnimator circuit_animator(circuit);
   circuit_animator.finalizeLayout();
+#else
+  IntegerFactorization::Opt01Circuit circuit;
+  circuit.createCircuit(8);
+  CircuitAnimator circuit_animator(circuit);
+  circuit_animator.finalizeLayout();
+#endif
 
   while (!WindowShouldClose()) {
     curr_frame_time += GetFrameTime();

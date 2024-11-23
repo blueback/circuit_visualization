@@ -8,3 +8,5 @@
 #include <set>
 #include <vector>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>

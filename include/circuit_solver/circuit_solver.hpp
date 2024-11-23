@@ -105,6 +105,10 @@ class RegularAPCircuit : public Circuit {
 public:
   void createCircuit(const uint32_t degree);
 };
+class Opt01Circuit : public Circuit {
+public:
+  void createCircuit(const uint32_t degree);
+};
 }; // namespace IntegerFactorization
 
 class CircuitAnimKeyFrame {
@@ -123,16 +127,26 @@ public:
 };
 
 class CircuitNodeAnimKeyFrame : public CircuitAnimKeyFrame {
+public:
+  static constexpr size_t LABEL_LEN = 21;
+
 private:
   float _max_radius;
   Vector2 _center;
+  Color _color;
+  char _label[LABEL_LEN];
 
 public:
   CircuitNodeAnimKeyFrame(void) = delete;
   CircuitNodeAnimKeyFrame(const float start_time, const float end_time,
-                          const float max_radius, const Vector2 center)
+                          const float max_radius, const Vector2 center,
+                          const Color color, const char *label)
       : CircuitAnimKeyFrame(start_time, end_time), _max_radius(max_radius),
-        _center(center) {}
+        _center(center), _color(color) {
+
+    assert(strlen(label) < LABEL_LEN);
+    sprintf(_label, "%s", label);
+  }
 
   float getMaxRadius(void) const { return _max_radius; }
   float getCurrentRadius(const float time) const {
@@ -149,7 +163,12 @@ public:
 
     return sin_interpolated_radius;
   }
+
   Vector2 getCenter(void) const { return _center; }
+
+  Color getColor(void) const { return _color; }
+
+  const char *getLabel(void) const { return _label; }
 };
 
 class CircuitEdgeAnimKeyFrame : public CircuitAnimKeyFrame {
@@ -266,8 +285,8 @@ public:
 
 class CircuitAnimator {
 private:
-  static constexpr float KEY_FRAME_TIME = 1.0f;
-  static constexpr float KEY_FRAME_OVERLAP_TIME = 0.2f;
+  static constexpr float KEY_FRAME_TIME = 0.02f;
+  static constexpr float KEY_FRAME_OVERLAP_TIME = 0.009f;
   static constexpr float MAX_NODE_RADIUS = 20.0f;
 
   const Circuit &_circuit;
@@ -408,9 +427,37 @@ public:
             curr_node_center.x = 100.0f;
           }
 
-          _node_animation_frames.push_back(
-              CircuitNodeAnimKeyFrame(curr_time, curr_time + KEY_FRAME_TIME,
-                                      MAX_NODE_RADIUS, curr_node_center));
+          Color color = RED;
+          char label[CircuitNodeAnimKeyFrame::LABEL_LEN];
+          switch (_circuit.getNode(index).getType()) {
+          case AdderType:
+            color = BLUE;
+            sprintf(label, "+");
+            break;
+          case MultiplierType:
+            color = RED;
+            sprintf(label, "x");
+            break;
+          case ConstantType:
+            color = GREEN;
+            sprintf(label, "%d", _circuit.getNode(index).getValue());
+            break;
+          case InputNodeType:
+            color = YELLOW;
+            sprintf(label, "I");
+            break;
+          case OutputNodeType:
+            color = PURPLE;
+            sprintf(label, "O");
+            break;
+          default:
+            assert(0);
+            break;
+          };
+
+          _node_animation_frames.push_back(CircuitNodeAnimKeyFrame(
+              curr_time, curr_time + KEY_FRAME_TIME, MAX_NODE_RADIUS,
+              curr_node_center, color, label));
 
           printf("NODE_LAYOUT: index = %u, start_time = %f, end_time = %f\n",
                  index, curr_time, curr_time + KEY_FRAME_TIME);
@@ -450,18 +497,23 @@ public:
   }
 
   void updateCircuitAnimation(const float time) {
-    for (auto node_anim_frame : _node_animation_frames) {
-      const float radius = node_anim_frame.getCurrentRadius(time);
-      const Vector2 center = node_anim_frame.getCenter();
-      DrawCircleV(center, radius, RED);
-    }
-
     for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
       _edge_animation_frames[i]->updateFramePoints(time);
       Vector2 *points;
       size_t count;
       _edge_animation_frames[i]->getFramePoints(&points, &count);
-      DrawSplineLinear(points, count, 3.0f, YELLOW);
+      DrawSplineLinear(points, count, 2.0f, YELLOW);
+    }
+
+    for (auto node_anim_frame : _node_animation_frames) {
+      const float radius = node_anim_frame.getCurrentRadius(time);
+      const Vector2 center = node_anim_frame.getCenter();
+      const Color color = node_anim_frame.getColor();
+      const char *label = node_anim_frame.getLabel();
+      DrawCircleV(center, radius, color);
+      if (radius == node_anim_frame.getMaxRadius()) {
+        DrawText(label, center.x - 8, center.y - 14, 30.0f, YELLOW);
+      }
     }
   }
 };
