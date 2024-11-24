@@ -1,37 +1,36 @@
 ##################################################
-# Define sources for circuit solver
+# Define sources for circuit animator
 #
-set(CIRCUIT_SOLVER_SOURCES
-    circuit_solver.cpp
-    circuit_solver_self_test.cpp)
+set(CIRCUIT_ANIMATOR_SOURCES
+    circuit_animator.cpp)
 
 
 ##################################################
-# Add library for circuit solver
+# Add library for circuit animator
 #
-add_library(circuit_solver
+add_library(circuit_animator
 	STATIC
-    ${CIRCUIT_SOLVER_SOURCES})
+    ${CIRCUIT_ANIMATOR_SOURCES})
 
 
 ##################################################
-# Set PIC for library for circuit solver
+# Set PIC for library for circuit animator
 #
-set_target_properties(circuit_solver
+set_target_properties(circuit_animator
 	PROPERTIES
 	POSITION_INDEPENDENT_CODE ON)
 
 
 ##################################################
-# Add include directories for circuit solver
+# Add include directories for circuit animator
 #
-target_include_directories(circuit_solver
+target_include_directories(circuit_animator
 	AFTER PRIVATE
 	${CMAKE_SOURCE_DIR}/include)
-target_include_directories(circuit_solver
+target_include_directories(circuit_animator
 	AFTER PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(circuit_solver
+target_include_directories(circuit_animator
 	AFTER PRIVATE
 	${CMAKE_SOURCE_DIR}/third_party/usr/local/include)
 
@@ -39,29 +38,27 @@ target_include_directories(circuit_solver
 ##################################################
 # Append link directories
 #
-target_link_directories(circuit_solver
+target_link_directories(circuit_animator
     PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/usr/local/lib)
 
 
 ##################################################
-# Compiler options for circuit solver
+# Compiler options for circuit animator
 #
 target_compile_options(
-    circuit_solver PRIVATE 
+    circuit_animator PRIVATE 
     "$<$<CONFIG:Debug>:>"
     "$<$<CONFIG:Release>:>"
 )
 
 
 ##################################################
-# Define circuit solver link libraries
+# Define circuit animator link libraries
 #
-set(CIRCUIT_SOLVER_LINK_LIBRARIES
+set(CIRCUIT_ANIMATOR_LINK_LIBRARIES
     "$<$<CONFIG:Debug>:circuit_model>"
     "$<$<CONFIG:Release>:circuit_model>"
-    "$<$<CONFIG:Debug>:circuit_animator>"
-    "$<$<CONFIG:Release>:circuit_animator>"
     "$<$<CONFIG:Debug>:raylib>"
     "$<$<CONFIG:Release>:raylib>"
 )
@@ -70,6 +67,6 @@ set(CIRCUIT_SOLVER_LINK_LIBRARIES
 ##################################################
 # link libraries
 #
-target_link_libraries(circuit_solver
+target_link_libraries(circuit_animator
 	PRIVATE
-    ${CIRCUIT_SOLVER_LINK_LIBRARIES})
+    ${CIRCUIT_ANIMATOR_LINK_LIBRARIES})

@@ -83,7 +83,7 @@ void CircuitSolver::solve() {
 
   float curr_frame_time = 0.0f;
 
-#if 0
+#if 1
   IntegerFactorization::RegularAPCircuit circuit;
   circuit.createCircuit(14);
   CircuitAnimator circuit_animator(circuit);
