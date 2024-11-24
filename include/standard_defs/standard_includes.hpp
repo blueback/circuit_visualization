@@ -10,3 +10,5 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include "raylib.h"
+#include "raymath.h"

@@ -1,6 +1,4 @@
 #include "raylib_probe/raylib_probe.hpp"
-#include "raylib.h"
-#include "raymath.h"
 
 void RaylibProbe::runRaylibProbe(void) {
 

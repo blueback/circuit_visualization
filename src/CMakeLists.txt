@@ -10,6 +10,7 @@ set(SRC_ROOT_INCLUDE_DIR
 #
 add_subdirectory(circuit_solver)
 add_subdirectory(raylib_probe)
+add_subdirectory(animation_demo)
 #add_subdirectory(subdir2)
 
 
@@ -46,6 +47,8 @@ set(CIRCUIT_VIS_LIBRARIES
     "$<$<CONFIG:Release>:circuit_solver>"
     "$<$<CONFIG:Debug>:raylib_probe>"
     "$<$<CONFIG:Release>:raylib_probe>"
+    "$<$<CONFIG:Debug>:animation_demo>"
+    "$<$<CONFIG:Release>:animation_demo>"
 )
 
 
