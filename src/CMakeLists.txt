@@ -8,10 +8,10 @@ set(SRC_ROOT_INCLUDE_DIR
 ##################################################
 # Subdirectories for src
 #
+add_subdirectory(circuit_model)
 add_subdirectory(circuit_solver)
 add_subdirectory(raylib_probe)
 add_subdirectory(animation_demo)
-#add_subdirectory(subdir2)
 
 
 ##################################################
@@ -43,6 +43,8 @@ target_link_directories(circuit_vis
 # Define link libraries
 #
 set(CIRCUIT_VIS_LIBRARIES
+    "$<$<CONFIG:Debug>:circuit_model>"
+    "$<$<CONFIG:Release>:circuit_model>"
     "$<$<CONFIG:Debug>:circuit_solver>"
     "$<$<CONFIG:Release>:circuit_solver>"
     "$<$<CONFIG:Debug>:raylib_probe>"
