@@ -1,4 +1,7 @@
-#include "standard_defs/standard_includes.hpp"
+#ifndef __ANIMATION_DEMO_HPP__
+#define __ANIMATION_DEMO_HPP__
+
+#include "standard_defs/standard_defs.hpp"
 
 class CircuitAnimationDemo {
 private:
@@ -29,3 +32,5 @@ private:
 public:
   void solve(void);
 };
+
+#endif // __ANIMATION_DEMO_HPP__

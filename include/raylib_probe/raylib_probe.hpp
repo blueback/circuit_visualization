@@ -1,4 +1,7 @@
-#include "standard_defs/standard_includes.hpp"
+#ifndef __RAYLIB_PROBE_HPP__
+#define __RAYLIB_PROBE_HPP__
+
+#include "standard_defs/standard_defs.hpp"
 
 class RaylibProbe {
 private:
@@ -12,3 +15,5 @@ private:
 public:
   void runRaylibProbe(void);
 };
+
+#endif // __RAYLIB_PROBE_HPP__

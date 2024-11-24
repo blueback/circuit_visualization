@@ -1,109 +1,15 @@
-#include "standard_defs/standard_includes.hpp"
+#ifndef __CIRCUIT_SOLVER_HPP__
+#define __CIRCUIT_SOLVER_HPP__
 
-enum CircuitNodeType : uint8_t {
-  FirstCircuitNodeType = 0,
-  AdderType = FirstCircuitNodeType,
-  MultiplierType,
-  ConstantType,
-  InputNodeType,
-  OutputNodeType,
-  LastCircuitNodeType = OutputNodeType
-};
-
-enum IteratorStatus : uint8_t { IterationBreak, IterationContinue };
-
-class CircuitNode {
-private:
-  uint32_t _index;
-  CircuitNodeType _type;
-  uint32_t _value;
-  std::set<uint32_t> fanout_nodes;
-  std::set<uint32_t> fanin_nodes;
-
-public:
-  CircuitNode(void) = delete;
-  CircuitNode(const uint32_t index, const CircuitNodeType type,
-              const uint32_t value)
-      : _index(index), _type(type), _value(value) {}
-
-  uint32_t getIndex(void) const { return _index; }
-  CircuitNodeType getType(void) const { return _type; }
-  uint32_t getValue(void) const { return _value; }
-
-  void addFanout(const uint32_t sink) {
-    assert(!fanout_nodes.contains(sink));
-    fanout_nodes.insert(sink);
-  }
-
-  void addFanin(const uint32_t sink) {
-    assert(!fanin_nodes.contains(sink));
-    fanin_nodes.insert(sink);
-  }
-
-  void forEachFanout(std::function<IteratorStatus(const uint32_t)> f) const {
-    for (auto fanout : fanout_nodes) {
-      const IteratorStatus status = f(fanout);
-      if (status == IterationBreak) {
-        break;
-      }
-    }
-  }
-
-  void forEachFanin(std::function<IteratorStatus(const uint32_t)> f) const {
-    for (auto fanin : fanin_nodes) {
-      const IteratorStatus status = f(fanin);
-      if (status == IterationBreak) {
-        break;
-      }
-    }
-  }
-
-  uint32_t getFanoutCount(void) const { return fanout_nodes.size(); }
-  uint32_t getFaninCount(void) const { return fanin_nodes.size(); }
-};
-
-typedef std::vector<CircuitNode> CircuitNodes;
-
-class Circuit {
-private:
-  CircuitNodes circuit_nodes;
-
-public:
-  uint32_t addNode(const CircuitNodeType type, const uint32_t value) {
-    const uint32_t index = circuit_nodes.size();
-    circuit_nodes.push_back(CircuitNode(index, type, value));
-    return index;
-  }
-
-  void addEdge(const uint32_t source, const uint32_t sink) {
-    circuit_nodes[source].addFanout(sink);
-    circuit_nodes[sink].addFanin(source);
-  }
-
-  uint32_t getNodeCount(void) const { return circuit_nodes.size(); }
-
-  const CircuitNode &getNode(const uint32_t index) const {
-    assert(circuit_nodes[index].getIndex() == index);
-    return circuit_nodes[index];
-  }
-
-  void forEachNode(std::function<IteratorStatus(const CircuitNode &)> f) const {
-    for (uint32_t i = 0; i < circuit_nodes.size(); i++) {
-      assert(i == circuit_nodes[i].getIndex());
-      const IteratorStatus status = f(circuit_nodes[i]);
-      if (status == IterationBreak) {
-        break;
-      }
-    }
-  }
-};
+#include "standard_defs/standard_defs.hpp"
+#include "circuit_model/circuit_model.hpp"
 
 namespace IntegerFactorization {
-class RegularAPCircuit : public Circuit {
+class RegularAPCircuit : public CircuitModel {
 public:
   void createCircuit(const uint32_t degree);
 };
-class Opt01Circuit : public Circuit {
+class Opt01Circuit : public CircuitModel {
 public:
   void createCircuit(const uint32_t degree);
 };
@@ -287,7 +193,7 @@ private:
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.009f;
   static constexpr float MAX_NODE_RADIUS = 20.0f;
 
-  const Circuit &_circuit;
+  const CircuitModel &_circuit;
 
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
   std::vector<CircuitEdgeAnimKeyFrame *> _edge_animation_frames;
@@ -296,7 +202,7 @@ private:
 public:
   CircuitAnimator(void) = delete;
 
-  CircuitAnimator(const Circuit &circuit) : _circuit(circuit) {
+  CircuitAnimator(const CircuitModel &circuit) : _circuit(circuit) {
     _node_anim_frame_indices.resize(_circuit.getNodeCount(), 0);
   }
 
@@ -531,3 +437,5 @@ private:
 public:
   void solve(void);
 };
+
+#endif // __CIRCUIT_SOLVER_HPP__
