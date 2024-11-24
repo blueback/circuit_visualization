@@ -83,15 +83,15 @@ void CircuitSolver::solve() {
 
   float curr_frame_time = 0.0f;
 
-#if 1
+#if 0
   IntegerFactorization::RegularAPCircuit circuit;
-  circuit.createCircuit(14);
-  CircuitAnimator circuit_animator(circuit);
+  circuit.createCircuit(8);
+  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
   circuit_animator.finalizeLayout();
 #else
   IntegerFactorization::Opt01Circuit circuit;
-  circuit.createCircuit(8);
-  CircuitAnimator circuit_animator(circuit);
+  circuit.createCircuit(4);
+  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
   circuit_animator.finalizeLayout();
 #endif
 
@@ -109,7 +109,7 @@ void CircuitSolver::solve() {
 
     BeginDrawing();
     {
-      ClearBackground(BLACK);
+      ClearBackground(DARKGRAY);
       BeginMode2D(camera);
       {
         // drawCircuit();

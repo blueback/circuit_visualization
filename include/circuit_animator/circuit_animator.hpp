@@ -2,7 +2,6 @@
 #define __CIRCUIT_ANIMATOR_HPP__
 
 #include "circuit_model/circuit_model.hpp"
-#include "standard_defs/standard_defs.hpp"
 
 class CircuitAnimKeyFrame {
 private:
@@ -20,26 +19,19 @@ public:
 };
 
 class CircuitNodeAnimKeyFrame : public CircuitAnimKeyFrame {
-public:
-  static constexpr size_t LABEL_LEN = 21;
-
 private:
   float _max_radius;
   Vector2 _center;
   Color _color;
-  char _label[LABEL_LEN];
+  char _label_codepoint;
 
 public:
   CircuitNodeAnimKeyFrame(void) = delete;
   CircuitNodeAnimKeyFrame(const float start_time, const float end_time,
                           const float max_radius, const Vector2 center,
-                          const Color color, const char *label)
+                          const Color color, const char label_codepoint)
       : CircuitAnimKeyFrame(start_time, end_time), _max_radius(max_radius),
-        _center(center), _color(color) {
-
-    assert(strlen(label) < LABEL_LEN);
-    sprintf(_label, "%s", label);
-  }
+        _center(center), _color(color), _label_codepoint(label_codepoint) {}
 
   inline float getMaxRadius(void) const { return _max_radius; }
 
@@ -62,7 +54,7 @@ public:
 
   inline Color getColor(void) const { return _color; }
 
-  inline const char *getLabel(void) const { return _label; }
+  inline const char getLabelCodepoint(void) const { return _label_codepoint; }
 };
 
 class CircuitEdgeAnimKeyFrame : public CircuitAnimKeyFrame {
@@ -179,11 +171,15 @@ public:
 
 class CircuitAnimator {
 private:
-  static constexpr float KEY_FRAME_TIME = 1.50f;
-  static constexpr float KEY_FRAME_OVERLAP_TIME = 0.50f;
+  static constexpr float KEY_FRAME_TIME = 0.40f;
+  static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
   static constexpr float MAX_NODE_RADIUS = 20.0f;
+  static constexpr float EDGE_WIDTH = 2.0f;
+  static constexpr Vector2 LABEL_DISPLACEMENT = {.x = 8, .y = 14};
+  static constexpr float LABEL_FONT_SIZE = 30.0f;
 
   const CircuitModel &_circuit;
+  const Vector2 _screen_resolution;
 
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
   std::vector<CircuitEdgeAnimKeyFrame *> _edge_animation_frames;
@@ -192,7 +188,8 @@ private:
 public:
   CircuitAnimator(void) = delete;
 
-  CircuitAnimator(const CircuitModel &circuit) : _circuit(circuit) {
+  CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution)
+      : _circuit(circuit), _screen_resolution(screen_resolution) {
     _node_anim_frame_indices.resize(_circuit.getNodeCount(), 0);
   }
 
@@ -210,17 +207,21 @@ public:
       Vector2 *points;
       size_t count;
       _edge_animation_frames[i]->getFramePoints(&points, &count);
-      DrawSplineLinear(points, count, 2.0f, YELLOW);
+      DrawSplineLinear(points, count, EDGE_WIDTH, LIGHTGRAY);
     }
 
     for (auto node_anim_frame : _node_animation_frames) {
       const float radius = node_anim_frame.getCurrentRadius(time);
       const Vector2 center = node_anim_frame.getCenter();
       const Color color = node_anim_frame.getColor();
-      const char *label = node_anim_frame.getLabel();
       DrawCircleV(center, radius, color);
+      DrawCircleLinesV(center, radius, RAYWHITE);
+
       if (radius == node_anim_frame.getMaxRadius()) {
-        DrawText(label, center.x - 8, center.y - 14, 30.0f, YELLOW);
+        const char label_codepoint = node_anim_frame.getLabelCodepoint();
+        DrawTextCodepoint(GetFontDefault(), label_codepoint,
+                          Vector2Subtract(center, LABEL_DISPLACEMENT),
+                          LABEL_FONT_SIZE, BLACK);
       }
     }
   }

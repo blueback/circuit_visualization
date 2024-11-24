@@ -126,28 +126,35 @@ void CircuitAnimator::finalizeLayout(void) {
         }
 
         Color color = RED;
-        char label[CircuitNodeAnimKeyFrame::LABEL_LEN];
+        char label_codepoint;
         switch (_circuit.getNode(index).getType()) {
-        case AdderType:
+        case AdderType: {
           color = BLUE;
-          sprintf(label, "+");
+          label_codepoint = '+';
           break;
-        case MultiplierType:
+        }
+        case MultiplierType: {
           color = RED;
-          sprintf(label, "x");
+          label_codepoint = 'x';
           break;
-        case ConstantType:
+        }
+        case ConstantType: {
           color = GREEN;
-          sprintf(label, "%d", _circuit.getNode(index).getValue());
+          const uint32_t val = _circuit.getNode(index).getValue();
+          assert(val >= 0 && val <= 9);
+          label_codepoint = '0' + val;
           break;
-        case InputNodeType:
+        }
+        case InputNodeType: {
           color = YELLOW;
-          sprintf(label, "I");
+          label_codepoint = 'I';
           break;
-        case OutputNodeType:
+        }
+        case OutputNodeType: {
           color = PURPLE;
-          sprintf(label, "O");
+          label_codepoint = 'O';
           break;
+        }
         default:
           assert(0);
           break;
@@ -155,7 +162,7 @@ void CircuitAnimator::finalizeLayout(void) {
 
         _node_animation_frames.push_back(CircuitNodeAnimKeyFrame(
             curr_time, curr_time + KEY_FRAME_TIME, MAX_NODE_RADIUS,
-            curr_node_center, color, label));
+            curr_node_center, color, label_codepoint));
 
         printf("NODE_LAYOUT: index = %u, start_time = %f, end_time = %f\n",
                index, curr_time, curr_time + KEY_FRAME_TIME);
