@@ -4,7 +4,7 @@ void CircuitAnimator::traverseCircuitLevelized(
     std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
     std::function<IteratorStatus(const uint32_t, const uint32_t,
                                  const uint32_t)>
-        fe) {
+        fe) const {
   std::vector<uint32_t> node_index_stk1;
   std::vector<uint32_t> const_node_index_stk1;
   std::vector<uint32_t> visited_fanin_counts;
@@ -110,19 +110,68 @@ void CircuitAnimator::traverseCircuitLevelized(
   }
 }
 
+uint32_t CircuitAnimator::getNumberOfLayers(void) const {
+  uint32_t curr_layer = 0;
+
+  traverseCircuitLevelized(
+      [&](const uint32_t, const uint32_t layer) {
+        if (layer != curr_layer) {
+          assert(layer == curr_layer + 1);
+          curr_layer++;
+        }
+        return IterationContinue;
+      },
+      [&](const uint32_t, const uint32_t, const uint32_t) {
+        return IterationContinue;
+      });
+
+  return curr_layer + 1;
+}
+
+float CircuitAnimator::getInterLayerDistance(void) const {
+  const uint32_t layer_count = getNumberOfLayers();
+  const float screen_height = _screen_resolution.y;
+  return screen_height / (layer_count + 1.0f);
+}
+
+uint32_t CircuitAnimator::getLayerNodeCount(const uint32_t layer) const {
+  uint32_t layer_node_count(0);
+  traverseCircuitLevelized(
+      [&](const uint32_t, const uint32_t curr_layer) {
+        if (layer == curr_layer) {
+          layer_node_count++;
+        }
+        return IterationContinue;
+      },
+      [&](const uint32_t, const uint32_t, const uint32_t) {
+        return IterationContinue;
+      });
+  return layer_node_count;
+}
+
+float CircuitAnimator::getLayerInterNodeDistance(const uint32_t layer) const {
+  const uint32_t layer_node_count = getLayerNodeCount(layer);
+  const float screen_width = _screen_resolution.x;
+  return screen_width / (layer_node_count + 1);
+}
+
 void CircuitAnimator::finalizeLayout(void) {
   float curr_time(0.0f);
-  Vector2 curr_node_center = {.x = 50.0f, .y = 50.0f};
   uint32_t curr_layer = 0;
+  Vector2 curr_node_center = {.x = 0.0f,
+                              .y = getInterLayerDistance()};
   traverseCircuitLevelized(
       [&](const uint32_t index, const uint32_t layer) {
         if (layer == curr_layer) {
-          curr_node_center += {.x = 100.0f, .y = 0.0f};
+          curr_node_center = Vector2Add(
+              curr_node_center,
+              {.x = getLayerInterNodeDistance(curr_layer), .y = 0.0f});
         } else {
           assert(layer == curr_layer + 1);
           curr_layer++;
-          curr_node_center += {.x = 0.0f, .y = 100.0f};
-          curr_node_center.x = 100.0f;
+          curr_node_center = Vector2Add(
+              curr_node_center, {.x = 0.0f, .y = getInterLayerDistance()});
+          curr_node_center.x = getLayerInterNodeDistance(curr_layer);
         }
 
         Color color = RED;

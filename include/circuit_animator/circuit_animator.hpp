@@ -173,7 +173,7 @@ class CircuitAnimator {
 private:
   static constexpr float KEY_FRAME_TIME = 0.40f;
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
-  static constexpr float MAX_NODE_RADIUS = 20.0f;
+  static constexpr float MAX_NODE_RADIUS = 30.0f;
   static constexpr float EDGE_WIDTH = 2.0f;
   static constexpr Vector2 LABEL_DISPLACEMENT = {.x = 8, .y = 14};
   static constexpr float LABEL_FONT_SIZE = 30.0f;
@@ -197,7 +197,15 @@ public:
       std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
       std::function<IteratorStatus(const uint32_t, const uint32_t,
                                    const uint32_t)>
-          fe);
+          fe) const;
+
+  uint32_t getNumberOfLayers(void) const;
+
+  float getInterLayerDistance(void) const;
+
+  uint32_t getLayerNodeCount(const uint32_t layer) const;
+
+  float getLayerInterNodeDistance(const uint32_t layer) const;
 
   void finalizeLayout(void);
 
