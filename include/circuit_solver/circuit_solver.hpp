@@ -24,10 +24,12 @@ private:
   static constexpr Rectangle SCREEN_RECT = {
       .x = 0, .y = 0, .width = SCREEN_WIDTH, .height = SCREEN_HEIGHT};
 
-  void drawCircuit(CircuitAnimator &circuit_animator, const float time);
+  inline bool drawCircuit(CircuitAnimator &circuit_animator, const float time);
 
 public:
   void solve(void);
+
+  void render_video(void);
 };
 
 #endif // __CIRCUIT_SOLVER_HPP__

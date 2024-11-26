@@ -62,6 +62,8 @@ set(CIRCUIT_SOLVER_LINK_LIBRARIES
     "$<$<CONFIG:Release>:circuit_model>"
     "$<$<CONFIG:Debug>:circuit_animator>"
     "$<$<CONFIG:Release>:circuit_animator>"
+    "$<$<CONFIG:Debug>:ffmpeg_rendering>"
+    "$<$<CONFIG:Release>:ffmpeg_rendering>"
     "$<$<CONFIG:Debug>:raylib>"
     "$<$<CONFIG:Release>:raylib>"
 )

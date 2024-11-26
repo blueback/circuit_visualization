@@ -3,6 +3,10 @@
 #include <cassert>
 #include "stdint.h"
 #include <cmath>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <cstdint>
 #include <functional>
 #include <set>
@@ -10,5 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string.h>
 #include "raylib.h"
 #include "raymath.h"

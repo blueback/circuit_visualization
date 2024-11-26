@@ -13,6 +13,7 @@ add_subdirectory(circuit_animator)
 add_subdirectory(circuit_solver)
 add_subdirectory(raylib_probe)
 add_subdirectory(animation_demo)
+add_subdirectory(ffmpeg_rendering)
 
 
 ##################################################

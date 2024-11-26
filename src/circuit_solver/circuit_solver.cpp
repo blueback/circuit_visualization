@@ -1,4 +1,5 @@
 #include "circuit_solver/circuit_solver.hpp"
+#include "ffmpeg_rendering/ffmpeg.hpp"
 
 void IntegerFactorization::RegularAPCircuit::createCircuit(
     const uint32_t degree) {
@@ -63,10 +64,10 @@ void IntegerFactorization::Opt01Circuit::createCircuit(const uint32_t degree) {
   printf("created circuit\n");
 }
 
-void CircuitSolver::drawCircuit(CircuitAnimator &circuit_animator,
-                                const float time) {
+inline bool CircuitSolver::drawCircuit(CircuitAnimator &circuit_animator,
+                                       const float time) {
   DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
-  circuit_animator.updateCircuitAnimation(time);
+  return circuit_animator.updateCircuitAnimation(time);
 }
 
 void CircuitSolver::solve() {
@@ -113,11 +114,70 @@ void CircuitSolver::solve() {
       BeginMode2D(camera);
       {
         // drawCircuit();
-        drawCircuit(circuit_animator, curr_frame_time);
+        bool should_continue = drawCircuit(circuit_animator, curr_frame_time);
+        if (!should_continue) {
+          break;
+        }
       }
       EndMode2D();
     }
     EndDrawing();
   }
   CloseWindow();
+}
+
+void CircuitSolver::render_video() {
+
+  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "circuit visualization");
+  SetTargetFPS(SCREEN_FPS);
+
+  float curr_frame_time = 0.0f;
+
+#if 0
+  IntegerFactorization::RegularAPCircuit circuit;
+  circuit.createCircuit(8);
+  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
+  circuit_animator.finalizeLayout();
+#else
+  IntegerFactorization::Opt01Circuit circuit;
+  circuit.createCircuit(4);
+  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
+  circuit_animator.finalizeLayout();
+#endif
+
+  FFMPEG *ffmpeg = ffmpeg_start_rendering("output.mp4", SCREEN_WIDTH,
+                                                SCREEN_HEIGHT, SCREEN_FPS);
+
+  RenderTexture2D render_screen =
+      LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
+  SetTraceLogLevel(LOG_WARNING);
+
+  while (!WindowShouldClose()) {
+    curr_frame_time += GetFrameTime();
+
+    BeginDrawing();
+    {
+      BeginTextureMode(render_screen);
+      {
+        ClearBackground(DARKGRAY);
+        bool should_continue = drawCircuit(circuit_animator, curr_frame_time);
+        if (!should_continue) {
+          break;
+        }
+      }
+      EndTextureMode();
+
+      Image image = LoadImageFromTexture(render_screen.texture);
+      if (!ffmpeg_send_frame_flipped(ffmpeg, image.data, image.width,
+                                     image.height)) {
+        ffmpeg_end_rendering(ffmpeg, true);
+      }
+
+      UnloadImage(image);
+    }
+    EndDrawing();
+  }
+  CloseWindow();
+
+  ffmpeg_end_rendering(ffmpeg, false);
 }

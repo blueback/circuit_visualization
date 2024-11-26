@@ -59,6 +59,7 @@ RUN apt-get -y install libssl-dev
 
 # }
 
+RUN apt-get -y install ffmpeg
 
 #RUN apt-get -y install gcc g++ cmake
 

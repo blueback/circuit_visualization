@@ -173,24 +173,29 @@ class CircuitAnimator {
 private:
   static constexpr float KEY_FRAME_TIME = 0.40f;
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
-  static constexpr float MAX_NODE_RADIUS = 30.0f;
+  static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
   static constexpr float EDGE_WIDTH = 2.0f;
-  static constexpr Vector2 LABEL_DISPLACEMENT = {.x = 8, .y = 14};
-  static constexpr float LABEL_FONT_SIZE = 30.0f;
+  static constexpr float LABEL_FONT_SIZE_RATIO = 30.0f / 720;
+  static constexpr Vector2 LABEL_DISPLACEMENT_RATIO = {
+      .x = LABEL_FONT_SIZE_RATIO / 4, .y = LABEL_FONT_SIZE_RATIO / 2};
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
+  const Font _font;
 
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
   std::vector<CircuitEdgeAnimKeyFrame *> _edge_animation_frames;
   std::vector<uint32_t> _node_anim_frame_indices;
+  float _total_animation_time;
 
 public:
   CircuitAnimator(void) = delete;
 
   CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution)
-      : _circuit(circuit), _screen_resolution(screen_resolution) {
+      : _circuit(circuit), _screen_resolution(screen_resolution),
+        _font(LoadFont("./resources/DotGothic16-Regular.ttf")) {
     _node_anim_frame_indices.resize(_circuit.getNodeCount(), 0);
+    _total_animation_time = 0.0f;
   }
 
   void traverseCircuitLevelized(
@@ -209,7 +214,7 @@ public:
 
   void finalizeLayout(void);
 
-  inline void updateCircuitAnimation(const float time) {
+  inline bool updateCircuitAnimation(const float time) {
     for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
       _edge_animation_frames[i]->updateFramePoints(time);
       Vector2 *points;
@@ -227,11 +232,20 @@ public:
 
       if (radius == node_anim_frame.getMaxRadius()) {
         const char label_codepoint = node_anim_frame.getLabelCodepoint();
-        DrawTextCodepoint(GetFontDefault(), label_codepoint,
-                          Vector2Subtract(center, LABEL_DISPLACEMENT),
-                          LABEL_FONT_SIZE, BLACK);
+        DrawTextCodepoint(
+            _font, label_codepoint,
+            Vector2Subtract(center, Vector2Multiply(LABEL_DISPLACEMENT_RATIO,
+                                                    {_screen_resolution.y,
+                                                     _screen_resolution.y})),
+            LABEL_FONT_SIZE_RATIO * _screen_resolution.y, BLACK);
       }
     }
+
+    if (time > _total_animation_time) {
+      return false;
+    }
+
+    return true;
   }
 };
 

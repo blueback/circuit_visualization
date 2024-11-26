@@ -89,3 +89,7 @@ TODO list:
 ----------
 - modularize inline decisions.
 - modularize assert decisions.
+
+Acknowledgement:
+----------------
+1. Video rendering code, which uses ffmpeg is inspired by tsoding daily(zezin).

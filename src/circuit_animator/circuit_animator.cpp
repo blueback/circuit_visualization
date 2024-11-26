@@ -158,8 +158,7 @@ float CircuitAnimator::getLayerInterNodeDistance(const uint32_t layer) const {
 void CircuitAnimator::finalizeLayout(void) {
   float curr_time(0.0f);
   uint32_t curr_layer = 0;
-  Vector2 curr_node_center = {.x = 0.0f,
-                              .y = getInterLayerDistance()};
+  Vector2 curr_node_center = {.x = 0.0f, .y = getInterLayerDistance()};
   traverseCircuitLevelized(
       [&](const uint32_t index, const uint32_t layer) {
         if (layer == curr_layer) {
@@ -210,8 +209,9 @@ void CircuitAnimator::finalizeLayout(void) {
         };
 
         _node_animation_frames.push_back(CircuitNodeAnimKeyFrame(
-            curr_time, curr_time + KEY_FRAME_TIME, MAX_NODE_RADIUS,
-            curr_node_center, color, label_codepoint));
+            curr_time, curr_time + KEY_FRAME_TIME,
+            MAX_NODE_RADIUS_RATIO * _screen_resolution.y, curr_node_center,
+            color, label_codepoint));
 
         printf("NODE_LAYOUT: index = %u, start_time = %f, end_time = %f\n",
                index, curr_time, curr_time + KEY_FRAME_TIME);
@@ -247,4 +247,6 @@ void CircuitAnimator::finalizeLayout(void) {
 
         return IterationContinue;
       });
+
+  _total_animation_time = curr_time + 2;
 }
