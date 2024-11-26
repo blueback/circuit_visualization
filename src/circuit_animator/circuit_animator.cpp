@@ -232,12 +232,29 @@ void CircuitAnimator::finalizeLayout(void) {
             _node_animation_frames[_node_anim_frame_indices[sink_index]]
                 .getCenter();
 
-        const Vector2 start_control_point =
-            Vector2Lerp(start_point, end_point, 0.5f);
+        const Vector2 mid_point = Vector2Lerp(start_point, end_point, 0.50f);
+
+        const Vector2 start_control_point = {.x = end_point.x,
+                                             .y = mid_point.y};
+
+        // const Vector2 mid_point =
+        //     Vector2Lerp(start_point, end_point, 0.50f);
+
+        // const Vector2 middle_point1 = {.x = start_control_point.x, .y =
+        // mid_point.y};
+
+        // const Vector2 mid_mid_point = Vector2Lerp(mid_point, end_point,
+        // 0.50f);
+
+        // const Vector2 control_point1 = {.x = end_point.x, .y =
+        // mid_mid_point.y};
 
         _edge_animation_frames.push_back(new CircuitEdgeAnimKeyFrame(
             curr_time, curr_time + KEY_FRAME_TIME, start_point, end_point,
             start_control_point));
+
+        //_edge_animation_frames[_edge_animation_frames.size() - 1]
+        //    ->addMiddlePoint(middle_point1, control_point1);
 
         printf("EDGE_LAYOUT: source_index = %u, sink_index = %u, start_time "
                "= %f, end_time = %f\n",

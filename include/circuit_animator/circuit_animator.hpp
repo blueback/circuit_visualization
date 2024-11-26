@@ -98,7 +98,7 @@ public:
     const size_t segment =
         (clamped_time - getStartTime()) / _segment_interval_time;
 
-    if (clamped_time - getStartTime() == _segment_interval_time) {
+    if (segment == _middle_points.size() + 1) {
       return segment - 1;
     }
     return segment;
