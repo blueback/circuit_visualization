@@ -66,7 +66,6 @@ void IntegerFactorization::Opt01Circuit::createCircuit(const uint32_t degree) {
 
 inline bool CircuitSolver::drawCircuit(CircuitAnimator &circuit_animator,
                                        const float time) {
-  DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
   return circuit_animator.updateCircuitAnimation(time);
 }
 
@@ -113,7 +112,7 @@ void CircuitSolver::solve() {
       ClearBackground(DARKGRAY);
       BeginMode2D(camera);
       {
-        // drawCircuit();
+        DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
         bool should_continue = drawCircuit(circuit_animator, curr_frame_time);
         if (!should_continue) {
           break;
@@ -146,7 +145,7 @@ void CircuitSolver::render_video() {
 #endif
 
   FFMPEG *ffmpeg = ffmpeg_start_rendering("output.mp4", SCREEN_WIDTH,
-                                                SCREEN_HEIGHT, SCREEN_FPS);
+                                          SCREEN_HEIGHT, SCREEN_FPS);
 
   RenderTexture2D render_screen =
       LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
