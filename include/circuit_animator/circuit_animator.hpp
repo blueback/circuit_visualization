@@ -25,6 +25,8 @@ private:
   Color _color;
   char _label_codepoint;
 
+  static constexpr Vector2 LABEL_DISPLACEMENT_RATIO = {.x = 0.25f, .y = 0.5f};
+
 public:
   CircuitNodeAnimKeyFrame(void) = delete;
   CircuitNodeAnimKeyFrame(const float start_time, const float end_time,
@@ -54,7 +56,18 @@ public:
 
   inline Color getColor(void) const { return _color; }
 
-  inline const char getLabelCodepoint(void) const { return _label_codepoint; }
+  inline char getLabelCodepoint(void) const { return _label_codepoint; }
+
+  inline float getLabelCurrentSize(const float time) const {
+    return getCurrentRadius(time);
+  }
+
+  inline Vector2 getLabelCurrentPosition(const float time) const {
+    const Vector2 center = getCenter();
+    const float label_size = getLabelCurrentSize(time);
+    return Vector2Subtract(center, Vector2Multiply(LABEL_DISPLACEMENT_RATIO,
+                                                   {label_size, label_size}));
+  }
 };
 
 class CircuitEdgeAnimKeyFrame : public CircuitAnimKeyFrame {
@@ -175,9 +188,6 @@ private:
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
   static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
   static constexpr float EDGE_WIDTH = 2.0f;
-  static constexpr float LABEL_FONT_SIZE_RATIO = 30.0f / 720;
-  static constexpr Vector2 LABEL_DISPLACEMENT_RATIO = {
-      .x = LABEL_FONT_SIZE_RATIO / 4, .y = LABEL_FONT_SIZE_RATIO / 2};
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
@@ -236,15 +246,12 @@ public:
       DrawCircleV(center, radius, color);
       DrawCircleLinesV(center, radius, RAYWHITE);
 
-      if (radius == node_anim_frame.getMaxRadius()) {
-        const char label_codepoint = node_anim_frame.getLabelCodepoint();
-        DrawTextCodepoint(
-            _font, label_codepoint,
-            Vector2Subtract(center, Vector2Multiply(LABEL_DISPLACEMENT_RATIO,
-                                                    {_screen_resolution.y,
-                                                     _screen_resolution.y})),
-            LABEL_FONT_SIZE_RATIO * _screen_resolution.y, BLACK);
-      }
+      const char label_codepoint = node_anim_frame.getLabelCodepoint();
+      const float label_size = node_anim_frame.getLabelCurrentSize(time);
+      const Vector2 label_position =
+          node_anim_frame.getLabelCurrentPosition(time);
+      DrawTextCodepoint(_font, label_codepoint, label_position, label_size,
+                        BLACK);
     }
 
     if (time > _animation_end_time) {
