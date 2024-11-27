@@ -11,6 +11,7 @@
 #include <functional>
 #include <set>
 #include <vector>
+#include <map>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>

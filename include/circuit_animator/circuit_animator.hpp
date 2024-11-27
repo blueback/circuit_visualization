@@ -246,7 +246,7 @@ private:
   void traverseCircuitLevelized(
       std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
       std::function<IteratorStatus(const uint32_t, const uint32_t,
-                                   const uint32_t)>
+                                   const uint32_t, const uint32_t)>
           fe) const;
 
   uint32_t getNumberOfLayers(void) const;

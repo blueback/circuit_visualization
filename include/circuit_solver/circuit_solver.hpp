@@ -3,6 +3,14 @@
 
 #include "circuit_animator/circuit_animator.hpp"
 
+class ExampleCircuit001 : public CircuitModel {
+private:
+  void createCircuit(void);
+
+public:
+  ExampleCircuit001(void) { createCircuit(); }
+};
+
 namespace IntegerFactorization {
 
 class RegularAPCircuit : public CircuitModel {

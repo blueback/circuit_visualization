@@ -1,6 +1,27 @@
 #include "circuit_solver/circuit_solver.hpp"
 #include "ffmpeg_rendering/ffmpeg.hpp"
 
+void ExampleCircuit001::createCircuit(void) {
+    // x^2 + 2x + 1
+    const uint32_t input = addNode(InputNodeType, 0);
+    const uint32_t m1 = addNode(MultiplierType, 0);
+    const uint32_t m2 = addNode(MultiplierType, 0);
+    const uint32_t c1 = addNode(ConstantType, 2);
+    const uint32_t c2 = addNode(ConstantType, 1);
+    const uint32_t a1 = addNode(AdderType, 0);
+    const uint32_t a2 = addNode(AdderType, 0);
+    const uint32_t o1 = addNode(OutputNodeType, 0);
+    addEdge(input, m1);
+    addEdge(input, m1);
+    addEdge(input, m2);
+    addEdge(c1, m2);
+    addEdge(m1, a1);
+    addEdge(m2, a1);
+    addEdge(a1, a2);
+    addEdge(c2, a2);
+    addEdge(a2, o1);
+}
+
 void IntegerFactorization::RegularAPCircuit::createCircuit(
     const uint32_t degree) {
 
@@ -75,6 +96,7 @@ void CircuitSolver::addOneCircuitToAnimate(CircuitModel *circuit) {
 }
 
 void CircuitSolver::stackCircuitsToAnimate(void) {
+  addOneCircuitToAnimate(new ExampleCircuit001());
   addOneCircuitToAnimate(new IntegerFactorization::RegularAPCircuit(8));
   addOneCircuitToAnimate(new IntegerFactorization::Opt01Circuit(4));
 }

@@ -2,7 +2,7 @@
 
 void CircuitAnimator::traverseCircuitLevelized(
     std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
-    std::function<IteratorStatus(const uint32_t, const uint32_t,
+    std::function<IteratorStatus(const uint32_t, const uint32_t, const uint32_t,
                                  const uint32_t)>
         fe) const {
   std::vector<uint32_t> node_index_stk1;
@@ -28,19 +28,21 @@ void CircuitAnimator::traverseCircuitLevelized(
       return;
     }
 
-    _circuit.getNode(index).forEachFanout([&](const uint32_t sink_index) {
-      visited_fanin_counts[sink_index]++;
+    _circuit.getNode(index).forEachFanout(
+        [&](const uint32_t sink_index, const uint32_t count) {
+          visited_fanin_counts[sink_index] += count;
 
-      assert(visited_fanin_counts[sink_index] <=
-             _circuit.getNode(sink_index).getFaninCount());
-      if (visited_fanin_counts[sink_index] ==
-          _circuit.getNode(sink_index).getFaninCount()) {
+          assert(visited_fanin_counts[sink_index] <=
+                 _circuit.getNode(sink_index).getFaninCount());
 
-        node_index_stk2.push_back(sink_index);
-      }
+          if (visited_fanin_counts[sink_index] ==
+              _circuit.getNode(sink_index).getFaninCount()) {
 
-      return IterationContinue;
-    });
+            node_index_stk2.push_back(sink_index);
+          }
+
+          return IterationContinue;
+        });
   }
 
   layer++;
@@ -52,19 +54,21 @@ void CircuitAnimator::traverseCircuitLevelized(
       return;
     }
 
-    _circuit.getNode(index).forEachFanout([&](const uint32_t sink_index) {
-      visited_fanin_counts[sink_index]++;
+    _circuit.getNode(index).forEachFanout(
+        [&](const uint32_t sink_index, const uint32_t count) {
+          visited_fanin_counts[sink_index] += count;
 
-      assert(visited_fanin_counts[sink_index] <=
-             _circuit.getNode(sink_index).getFaninCount());
-      if (visited_fanin_counts[sink_index] ==
-          _circuit.getNode(sink_index).getFaninCount()) {
+          assert(visited_fanin_counts[sink_index] <=
+                 _circuit.getNode(sink_index).getFaninCount());
 
-        node_index_stk2.push_back(sink_index);
-      }
+          if (visited_fanin_counts[sink_index] ==
+              _circuit.getNode(sink_index).getFaninCount()) {
 
-      return IterationContinue;
-    });
+            node_index_stk2.push_back(sink_index);
+          }
+
+          return IterationContinue;
+        });
   }
 
   node_index_stk1.swap(node_index_stk2);
@@ -81,28 +85,31 @@ void CircuitAnimator::traverseCircuitLevelized(
         return;
       }
 
-      _circuit.getNode(index).forEachFanin([&](const uint32_t source_index) {
-        status = fe(source_index, index, layer);
-        return status;
-      });
+      _circuit.getNode(index).forEachFanin(
+          [&](const uint32_t source_index, const uint32_t count) {
+            status = fe(source_index, index, layer, count);
+            return status;
+          });
 
       if (status == IterationBreak) {
         return;
       }
 
-      _circuit.getNode(index).forEachFanout([&](const uint32_t sink_index) {
-        visited_fanin_counts[sink_index]++;
+      _circuit.getNode(index).forEachFanout(
+          [&](const uint32_t sink_index, const uint32_t count) {
+            visited_fanin_counts[sink_index] += count;
 
-        assert(visited_fanin_counts[sink_index] <=
-               _circuit.getNode(sink_index).getFaninCount());
-        if (visited_fanin_counts[sink_index] ==
-            _circuit.getNode(sink_index).getFaninCount()) {
+            assert(visited_fanin_counts[sink_index] <=
+                   _circuit.getNode(sink_index).getFaninCount());
 
-          node_index_stk2.push_back(sink_index);
-        }
+            if (visited_fanin_counts[sink_index] ==
+                _circuit.getNode(sink_index).getFaninCount()) {
 
-        return IterationContinue;
-      });
+              node_index_stk2.push_back(sink_index);
+            }
+
+            return IterationContinue;
+          });
     }
 
     node_index_stk1.swap(node_index_stk2);
@@ -121,7 +128,7 @@ uint32_t CircuitAnimator::getNumberOfLayers(void) const {
         }
         return IterationContinue;
       },
-      [&](const uint32_t, const uint32_t, const uint32_t) {
+      [&](const uint32_t, const uint32_t, const uint32_t, const uint32_t) {
         return IterationContinue;
       });
 
@@ -143,7 +150,7 @@ uint32_t CircuitAnimator::getLayerNodeCount(const uint32_t layer) const {
         }
         return IterationContinue;
       },
-      [&](const uint32_t, const uint32_t, const uint32_t) {
+      [&](const uint32_t, const uint32_t, const uint32_t, const uint32_t) {
         return IterationContinue;
       });
   return layer_node_count;
@@ -159,6 +166,7 @@ void CircuitAnimator::finalizeLayout(void) {
   float curr_time(_animation_start_time);
   uint32_t curr_layer = 0;
   Vector2 curr_node_center = {.x = 0.0f, .y = getInterLayerDistance()};
+
   traverseCircuitLevelized(
       [&](const uint32_t index, const uint32_t layer) {
         if (layer == curr_layer) {
@@ -189,7 +197,7 @@ void CircuitAnimator::finalizeLayout(void) {
         return IterationContinue;
       },
       [&](const uint32_t source_index, const uint32_t sink_index,
-          const uint32_t sink_layer) {
+          const uint32_t sink_layer, const uint32_t count) {
         const Vector2 start_point =
             _node_animation_frames[_node_anim_frame_indices[source_index]]
                 .getCenter();
@@ -198,35 +206,41 @@ void CircuitAnimator::finalizeLayout(void) {
             _node_animation_frames[_node_anim_frame_indices[sink_index]]
                 .getCenter();
 
-        const Vector2 mid_point = Vector2Lerp(start_point, end_point, 0.50f);
+        const float edge_count_inverse = 1.0f / (count + 1.0f);
 
-        const Vector2 start_control_point = {.x = end_point.x,
-                                             .y = mid_point.y};
+        for (uint32_t i = 1; i <= count; i++) {
+          const Vector2 mid_point =
+              Vector2Lerp(start_point, end_point, i * edge_count_inverse);
 
-        // const Vector2 mid_point =
-        //     Vector2Lerp(start_point, end_point, 0.50f);
+          const Vector2 start_control_point = {.x = end_point.x,
+                                               .y = mid_point.y};
 
-        // const Vector2 middle_point1 = {.x = start_control_point.x, .y =
-        // mid_point.y};
+          // const Vector2 mid_point =
+          //     Vector2Lerp(start_point, end_point, 0.50f);
 
-        // const Vector2 mid_mid_point = Vector2Lerp(mid_point, end_point,
-        // 0.50f);
+          // const Vector2 middle_point1 = {.x = start_control_point.x, .y =
+          // mid_point.y};
 
-        // const Vector2 control_point1 = {.x = end_point.x, .y =
-        // mid_mid_point.y};
+          // const Vector2 mid_mid_point = Vector2Lerp(mid_point, end_point,
+          // 0.50f);
 
-        _edge_animation_frames.push_back(new CircuitEdgeAnimKeyFrame(
-            curr_time, curr_time + KEY_FRAME_TIME, start_point, end_point,
-            start_control_point));
+          // const Vector2 control_point1 = {.x = end_point.x, .y =
+          // mid_mid_point.y};
 
-        //_edge_animation_frames[_edge_animation_frames.size() - 1]
-        //    ->addMiddlePoint(middle_point1, control_point1);
+          _edge_animation_frames.push_back(new CircuitEdgeAnimKeyFrame(
+              curr_time, curr_time + KEY_FRAME_TIME, start_point, end_point,
+              start_control_point));
 
-        printf("EDGE_LAYOUT: source_index = %u, sink_index = %u, start_time "
-               "= %f, end_time = %f\n",
-               source_index, sink_index, curr_time, curr_time + KEY_FRAME_TIME);
+          //_edge_animation_frames[_edge_animation_frames.size() - 1]
+          //    ->addMiddlePoint(middle_point1, control_point1);
 
-        curr_time += KEY_FRAME_TIME - KEY_FRAME_OVERLAP_TIME;
+          printf("EDGE_LAYOUT: source_index = %u, sink_index = %u, start_time "
+                 "= %f, end_time = %f\n",
+                 source_index, sink_index, curr_time,
+                 curr_time + KEY_FRAME_TIME);
+
+          curr_time += KEY_FRAME_TIME - KEY_FRAME_OVERLAP_TIME;
+        }
 
         return IterationContinue;
       });
