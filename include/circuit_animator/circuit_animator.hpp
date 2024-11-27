@@ -65,8 +65,10 @@ public:
   inline Vector2 getLabelCurrentPosition(const float time) const {
     const Vector2 center = getCenter();
     const float label_size = getLabelCurrentSize(time);
-    return Vector2Subtract(center, Vector2Multiply(LABEL_DISPLACEMENT_RATIO,
-                                                   {label_size, label_size}));
+    const Vector2 displacement =
+        Vector2Multiply(LABEL_DISPLACEMENT_RATIO, {label_size, label_size});
+
+    return Vector2Subtract(center, displacement);
   }
 };
 
