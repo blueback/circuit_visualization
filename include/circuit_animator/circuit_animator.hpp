@@ -27,13 +27,52 @@ private:
 
   static constexpr Vector2 LABEL_DISPLACEMENT_RATIO = {.x = 0.25f, .y = 0.5f};
 
+  static inline Color findColor(const CircuitNodeType type) {
+    switch (type) {
+    case AdderType:
+      return BLUE;
+    case MultiplierType:
+      return RED;
+    case ConstantType:
+      return GREEN;
+    case InputNodeType:
+      return YELLOW;
+    case OutputNodeType:
+      return PURPLE;
+    default:
+      assert(0);
+      return BLACK;
+    };
+  }
+
+  static inline char findLabelCodepoint(const CircuitNodeType type,
+                                        const uint32_t value) {
+    switch (type) {
+    case AdderType:
+      return '+';
+    case MultiplierType:
+      return 'x';
+    case ConstantType:
+      assert(value >= 0 && value <= 9);
+      return '0' + value;
+    case InputNodeType:
+      return 'I';
+    case OutputNodeType:
+      return 'O';
+    default:
+      assert(0);
+      return 'N';
+    }
+  }
+
 public:
   CircuitNodeAnimKeyFrame(void) = delete;
   CircuitNodeAnimKeyFrame(const float start_time, const float end_time,
                           const float max_radius, const Vector2 center,
-                          const Color color, const char label_codepoint)
+                          const CircuitNodeType type, const uint32_t value)
       : CircuitAnimKeyFrame(start_time, end_time), _max_radius(max_radius),
-        _center(center), _color(color), _label_codepoint(label_codepoint) {}
+        _center(center), _color(findColor(type)),
+        _label_codepoint(findLabelCodepoint(type, value)) {}
 
   inline float getMaxRadius(void) const { return _max_radius; }
 

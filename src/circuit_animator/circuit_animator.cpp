@@ -173,45 +173,11 @@ void CircuitAnimator::finalizeLayout(void) {
           curr_node_center.x = getLayerInterNodeDistance(curr_layer);
         }
 
-        Color color = RED;
-        char label_codepoint;
-        switch (_circuit.getNode(index).getType()) {
-        case AdderType: {
-          color = BLUE;
-          label_codepoint = '+';
-          break;
-        }
-        case MultiplierType: {
-          color = RED;
-          label_codepoint = 'x';
-          break;
-        }
-        case ConstantType: {
-          color = GREEN;
-          const uint32_t val = _circuit.getNode(index).getValue();
-          assert(val >= 0 && val <= 9);
-          label_codepoint = '0' + val;
-          break;
-        }
-        case InputNodeType: {
-          color = YELLOW;
-          label_codepoint = 'I';
-          break;
-        }
-        case OutputNodeType: {
-          color = PURPLE;
-          label_codepoint = 'O';
-          break;
-        }
-        default:
-          assert(0);
-          break;
-        };
-
         _node_animation_frames.push_back(CircuitNodeAnimKeyFrame(
             curr_time, curr_time + KEY_FRAME_TIME,
             MAX_NODE_RADIUS_RATIO * _screen_resolution.y, curr_node_center,
-            color, label_codepoint));
+            _circuit.getNode(index).getType(),
+            _circuit.getNode(index).getValue()));
 
         printf("NODE_LAYOUT: index = %u, start_time = %f, end_time = %f\n",
                index, curr_time, curr_time + KEY_FRAME_TIME);
