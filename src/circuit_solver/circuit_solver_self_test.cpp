@@ -3,6 +3,9 @@
 
 void CircuitSolverSelfTest::selfTest(void) {
   CircuitSolver circuit_solver;
-  //circuit_solver.solve();
+#if 1
+  circuit_solver.solve();
+#else
   circuit_solver.render_video();
+#endif
 }

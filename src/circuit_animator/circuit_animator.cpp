@@ -156,7 +156,7 @@ float CircuitAnimator::getLayerInterNodeDistance(const uint32_t layer) const {
 }
 
 void CircuitAnimator::finalizeLayout(void) {
-  float curr_time(0.0f);
+  float curr_time(_animation_start_time);
   uint32_t curr_layer = 0;
   Vector2 curr_node_center = {.x = 0.0f, .y = getInterLayerDistance()};
   traverseCircuitLevelized(
@@ -265,5 +265,5 @@ void CircuitAnimator::finalizeLayout(void) {
         return IterationContinue;
       });
 
-  _total_animation_time = curr_time + 2;
+  _animation_end_time = curr_time + 2;
 }

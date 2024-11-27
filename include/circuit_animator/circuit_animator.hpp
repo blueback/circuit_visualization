@@ -186,17 +186,11 @@ private:
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
   std::vector<CircuitEdgeAnimKeyFrame *> _edge_animation_frames;
   std::vector<uint32_t> _node_anim_frame_indices;
-  float _total_animation_time;
+  float _animation_start_time;
+  float _animation_end_time;
 
-public:
-  CircuitAnimator(void) = delete;
-
-  CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution)
-      : _circuit(circuit), _screen_resolution(screen_resolution),
-        _font(LoadFont("./resources/DotGothic16-Regular.ttf")) {
-    _node_anim_frame_indices.resize(_circuit.getNodeCount(), 0);
-    _total_animation_time = 0.0f;
-  }
+private:
+  void finalizeLayout(void);
 
   void traverseCircuitLevelized(
       std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
@@ -212,7 +206,19 @@ public:
 
   float getLayerInterNodeDistance(const uint32_t layer) const;
 
-  void finalizeLayout(void);
+public:
+  CircuitAnimator(void) = delete;
+
+  CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution,
+                  const float start_time)
+      : _circuit(circuit), _screen_resolution(screen_resolution),
+        _font(LoadFont("./resources/DotGothic16-Regular.ttf")),
+        _animation_start_time(start_time) {
+
+    _node_anim_frame_indices.resize(_circuit.getNodeCount(), 0);
+    _animation_end_time = 0.0f;
+    finalizeLayout();
+  }
 
   inline bool updateCircuitAnimation(const float time) {
     for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
@@ -241,12 +247,14 @@ public:
       }
     }
 
-    if (time > _total_animation_time) {
+    if (time > _animation_end_time) {
       return false;
     }
 
     return true;
   }
+
+  inline float getAnimationEndTime(void) const { return _animation_end_time; }
 };
 
 #endif // __CIRCUIT_ANIMATOR_HPP__

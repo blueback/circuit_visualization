@@ -64,9 +64,32 @@ void IntegerFactorization::Opt01Circuit::createCircuit(const uint32_t degree) {
   printf("created circuit\n");
 }
 
-inline bool CircuitSolver::drawCircuit(CircuitAnimator &circuit_animator,
-                                       const float time) {
-  return circuit_animator.updateCircuitAnimation(time);
+void CircuitSolver::addOneCircuitToAnimate(CircuitModel *circuit) {
+  float prev_end_time = 0.0f;
+  if (_animators.size() != 0) {
+    prev_end_time = _animators[_animators.size() - 1].getAnimationEndTime();
+  }
+  _circuits.push_back(circuit);
+  _animators.push_back(
+      CircuitAnimator(*circuit, SCREEN_RESOLUTION, prev_end_time));
+}
+
+void CircuitSolver::stackCircuitsToAnimate(void) {
+  addOneCircuitToAnimate(new IntegerFactorization::RegularAPCircuit(8));
+  addOneCircuitToAnimate(new IntegerFactorization::Opt01Circuit(4));
+}
+
+inline bool CircuitSolver::drawCircuits(const float time) {
+  assert(_current_animator < _animators.size());
+  if (_animators[_current_animator].updateCircuitAnimation(time)) {
+    return true;
+  } else {
+    _current_animator++;
+    if (_current_animator < _animators.size()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void CircuitSolver::solve() {
@@ -83,17 +106,7 @@ void CircuitSolver::solve() {
 
   float curr_frame_time = 0.0f;
 
-#if 0
-  IntegerFactorization::RegularAPCircuit circuit;
-  circuit.createCircuit(8);
-  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
-  circuit_animator.finalizeLayout();
-#else
-  IntegerFactorization::Opt01Circuit circuit;
-  circuit.createCircuit(4);
-  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
-  circuit_animator.finalizeLayout();
-#endif
+  stackCircuitsToAnimate();
 
   while (!WindowShouldClose()) {
     curr_frame_time += GetFrameTime();
@@ -113,7 +126,7 @@ void CircuitSolver::solve() {
       BeginMode2D(camera);
       {
         DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
-        bool should_continue = drawCircuit(circuit_animator, curr_frame_time);
+        bool should_continue = drawCircuits(curr_frame_time);
         if (!should_continue) {
           break;
         }
@@ -132,17 +145,7 @@ void CircuitSolver::render_video() {
 
   float curr_frame_time = 0.0f;
 
-#if 0
-  IntegerFactorization::RegularAPCircuit circuit;
-  circuit.createCircuit(8);
-  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
-  circuit_animator.finalizeLayout();
-#else
-  IntegerFactorization::Opt01Circuit circuit;
-  circuit.createCircuit(4);
-  CircuitAnimator circuit_animator(circuit, SCREEN_RESOLUTION);
-  circuit_animator.finalizeLayout();
-#endif
+  stackCircuitsToAnimate();
 
   FFMPEG *ffmpeg = ffmpeg_start_rendering("output.mp4", SCREEN_WIDTH,
                                           SCREEN_HEIGHT, SCREEN_FPS);
@@ -159,7 +162,7 @@ void CircuitSolver::render_video() {
       BeginTextureMode(render_screen);
       {
         ClearBackground(DARKGRAY);
-        bool should_continue = drawCircuit(circuit_animator, curr_frame_time);
+        bool should_continue = drawCircuits(curr_frame_time);
         if (!should_continue) {
           break;
         }
