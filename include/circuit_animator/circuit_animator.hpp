@@ -118,7 +118,6 @@ private:
   std::vector<Vector2> _middle_points;
   std::vector<Vector2> _control_points;
   float _segment_interval_time;
-  std::vector<Vector2> _frame_points;
 
 public:
   CircuitEdgeAnimKeyFrame(void) = delete;
@@ -190,7 +189,7 @@ public:
     return _control_points[segment];
   }
 
-  inline Vector2 getCurrentPoint(const float time) const {
+  inline Vector2 getCurrentSegmentEndPoint(const float time) const {
     const float clamped_time = Clamp(time, getStartTime(), getEndTime());
 
     const size_t segment = getSegment(clamped_time);
@@ -207,19 +206,75 @@ public:
     const float segment_norm_time =
         Normalize(segment_clamped_time, segment_start_time, segment_end_time);
 
-    const Vector2 curr_point =
+    const Vector2 curr_segment_end_point =
         GetSplinePointBezierQuad(segment_start_point, segment_control_point,
                                  segment_end_point, segment_norm_time);
-    return curr_point;
+    return curr_segment_end_point;
   }
 
-  inline void updateFramePoints(const float time) {
-    _frame_points.push_back(getCurrentPoint(time));
+  inline Vector2 getCurrentSegmentControlPoint(const float time) const {
+    const float clamped_time = Clamp(time, getStartTime(), getEndTime());
+
+    const size_t segment = getSegment(clamped_time);
+
+    const float segment_start_time = getSegmentStartTime(segment);
+    const float segment_end_time = getSegmentEndTime(segment);
+    const Vector2 segment_start_point = getSegmentStartPoint(segment);
+    const Vector2 segment_control_point = getSegmentControlPoint(segment);
+
+    const float segment_clamped_time =
+        Clamp(time, segment_start_time, segment_end_time);
+
+    const float segment_norm_time =
+        Normalize(segment_clamped_time, segment_start_time, segment_end_time);
+
+    const Vector2 curr_segment_control_point = Vector2Lerp(
+        segment_start_point, segment_control_point, segment_norm_time);
+
+    return curr_segment_control_point;
   }
 
-  inline void getFramePoints(Vector2 **points, size_t *count) {
-    *points = &_frame_points[0];
-    *count = _frame_points.size();
+  inline void forEachSegmentTillTime(
+      const float time,
+      std::function<IteratorStatus(const Vector2 segment_start_point,
+                                   const Vector2 segment_end_point,
+                                   const Vector2 segment_control_point)>
+          f) {
+    const float clamped_time = Clamp(time, getStartTime(), getEndTime());
+
+    const size_t curr_segment = getSegment(clamped_time);
+
+    for (size_t segment = 0; segment < curr_segment; segment++) {
+      if (f(getSegmentStartPoint(segment), getSegmentEndPoint(segment),
+            getSegmentControlPoint(segment)) == IterationBreak)
+        return;
+    }
+
+    (void)f(getSegmentStartPoint(curr_segment), getCurrentSegmentEndPoint(time),
+            getCurrentSegmentControlPoint(time));
+  }
+
+  inline void
+  forEachBezierQuadraticPoint(const float time,
+                              std::function<void(const Vector2 point)> f) {
+
+    if (time < getStartTime()) {
+      return;
+    }
+
+    Vector2 prev_end_point = getSegmentStartPoint(0);
+
+    forEachSegmentTillTime(time, [&](const Vector2 start_point,
+                                     const Vector2 end_point,
+                                     const Vector2 control_point) {
+      assert(prev_end_point == start_point);
+      f(start_point);
+      f(control_point);
+      prev_end_point = end_point;
+      return IterationContinue;
+    });
+
+    f(prev_end_point);
   }
 };
 
@@ -275,11 +330,13 @@ public:
 
   inline bool updateCircuitAnimation(const float time) {
     for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
-      _edge_animation_frames[i]->updateFramePoints(time);
-      Vector2 *points;
-      size_t count;
-      _edge_animation_frames[i]->getFramePoints(&points, &count);
-      DrawSplineLinear(points, count, EDGE_WIDTH, LIGHTGRAY);
+      std::vector<Vector2> points;
+
+      _edge_animation_frames[i]->forEachBezierQuadraticPoint(
+          time, [&](const Vector2 point) { points.push_back(point); });
+
+      DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH,
+                                LIGHTGRAY);
     }
 
     for (auto node_anim_frame : _node_animation_frames) {
