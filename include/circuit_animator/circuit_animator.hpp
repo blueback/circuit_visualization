@@ -141,6 +141,11 @@ private:
   std::vector<Vector2> _control_points;
   float _segment_interval_time;
 
+  // TODO: temporary fix, need to do this before animation
+  float _max_node_radius;
+  mutable Vector2 _arrow_final_end_point;
+  mutable Vector2 _arrow_final_end_control_point;
+
 public:
   CircuitEdgeAnimKeyFrame(void) = delete;
   CircuitEdgeAnimKeyFrame(const CircuitEdgeAnimKeyFrame &) = delete;
@@ -151,9 +156,10 @@ public:
   operator=(const CircuitEdgeAnimKeyFrame &&) = delete;
   CircuitEdgeAnimKeyFrame(const float start_time, const float end_time,
                           const Vector2 start_point, const Vector2 end_point,
-                          const Vector2 start_control_point)
+                          const Vector2 start_control_point,
+                          const float max_node_radius)
       : CircuitAnimKeyFrame(start_time, end_time), _start_point(start_point),
-        _end_point(end_point) {
+        _end_point(end_point), _max_node_radius(max_node_radius) {
 
     assert(start_time < end_time);
     _segment_interval_time = (end_time - start_time);
@@ -165,6 +171,52 @@ public:
     const size_t segment_count = _middle_points.size() + 1;
     _segment_interval_time = (getEndTime() - getStartTime()) / segment_count;
     _control_points.push_back(control_point);
+  }
+
+private:
+  inline Vector2 getStartPoint(void) const { return _start_point; }
+  inline Vector2 getEndPoint(void) const { return _end_point; }
+  inline float getMaxNodeRadius(void) const { return _max_node_radius; }
+
+  inline void setArrowFinalPoint(const Vector2 arrow_final_point) const {
+    _arrow_final_end_point = arrow_final_point;
+  }
+  inline void
+  setArrowFinalControlPoint(const Vector2 arrow_final_control_point) const {
+    _arrow_final_end_control_point = arrow_final_control_point;
+  }
+
+  inline Vector2 getArrowFinalPoint(void) const {
+    return _arrow_final_end_point;
+  }
+  inline Vector2 getArrowFinalControlPoint(void) const {
+    return _arrow_final_end_control_point;
+  }
+
+  inline Vector2 getArrowEndPoint(const float time) const {
+    Vector2 curr_end_point = getCurrentSegmentEndPoint(time);
+    const Vector2 end_point = getEndPoint();
+
+    if (CheckCollisionPointCircle(curr_end_point, end_point,
+                                  getMaxNodeRadius())) {
+      curr_end_point = getArrowFinalPoint();
+    } else {
+      setArrowFinalPoint(curr_end_point);
+    }
+    return curr_end_point;
+  }
+
+  inline Vector2 getArrowEndControlPoint(const float time) const {
+    Vector2 end_control_point = getCurrentSegmentControlPoint(time);
+    const Vector2 end_point = getEndPoint();
+
+    if (CheckCollisionPointCircle(getCurrentSegmentEndPoint(time), end_point,
+                                  getMaxNodeRadius())) {
+      end_control_point = getArrowFinalControlPoint();
+    } else {
+      setArrowFinalControlPoint(end_control_point);
+    }
+    return end_control_point;
   }
 
   inline size_t getSegment(const float time) const {
@@ -190,7 +242,7 @@ public:
   inline Vector2 getSegmentStartPoint(const size_t segment) const {
     assert(segment < _middle_points.size() + 1);
     if (segment == 0) {
-      return _start_point;
+      return getStartPoint();
     } else {
       return _middle_points[segment - 1];
     }
@@ -199,7 +251,7 @@ public:
   inline Vector2 getSegmentEndPoint(const size_t segment) const {
     assert(segment < _middle_points.size() + 1);
     if (segment == _middle_points.size()) {
-      return _end_point;
+      return getEndPoint();
     } else {
       return _middle_points[segment];
     }
@@ -276,6 +328,7 @@ public:
             getCurrentSegmentControlPoint(time));
   }
 
+public:
   inline void
   forEachBezierQuadraticPoint(const float time,
                               std::function<void(const Vector2 point)> f) {
@@ -297,6 +350,29 @@ public:
     });
 
     f(prev_end_point);
+  }
+
+  inline bool getArrowPoints(const float time, Vector2 &v1, Vector2 &v2,
+                             Vector2 &v3) const {
+    if (time < getStartTime()) {
+      return false;
+    }
+
+    const Vector2 arrow_end_point = getArrowEndPoint(time);
+    const Vector2 arrow_control_point = getArrowEndControlPoint(time);
+
+    const Vector2 dir_vector =
+        Vector2Normalize(Vector2Subtract(arrow_control_point, arrow_end_point));
+    const Vector2 v2_dir =
+        Vector2Scale(Vector2Rotate(dir_vector, PI / 8.0f), 20.0f);
+    const Vector2 v3_dir =
+        Vector2Scale(Vector2Rotate(dir_vector, -PI / 8.0f), 20.0f);
+
+    v1 = arrow_end_point;
+    v2 = Vector2Add(arrow_end_point, v2_dir);
+    v3 = Vector2Add(arrow_end_point, v3_dir);
+
+    return true;
   }
 };
 
@@ -358,6 +434,11 @@ public:
           time, [&](const Vector2 point) { points.push_back(point); });
 
       DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH, BLACK);
+
+      Vector2 v1, v2, v3;
+      if (_edge_animation_frames[i]->getArrowPoints(time, v1, v2, v3)) {
+        DrawTriangle(v1, v2, v3, BLACK);
+      }
     }
 
     for (auto node_anim_frame : _node_animation_frames) {

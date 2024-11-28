@@ -232,8 +232,10 @@ void CircuitAnimator::finalizeLayout(void) {
           const Vector2 start_control_point = {.x = end_point.x + x_deviation,
                                                .y = mid_point.y};
 
-          //const Vector2 control_point1 = Vector2Add(mid_point, {.x = 50.0f, .y = 0.0f });
-          //const Vector2 control_point2 = Vector2Add(mid_point, {.x = -50.0f, .y = 0.0f });
+          // const Vector2 control_point1 =
+          //     Vector2Add(mid_point, {.x = 50.0f, .y = 0.0f});
+          // const Vector2 control_point2 =
+          //     Vector2Add(mid_point, {.x = -50.0f, .y = 0.0f});
 
           // const Vector2 mid_point =
           //     Vector2Lerp(start_point, end_point, 0.50f);
@@ -249,7 +251,7 @@ void CircuitAnimator::finalizeLayout(void) {
 
           _edge_animation_frames.push_back(new CircuitEdgeAnimKeyFrame(
               curr_time, curr_time + KEY_FRAME_TIME, start_point, end_point,
-              start_control_point));
+              start_control_point, getMaxNodeRadius()));
 
           //_edge_animation_frames[_edge_animation_frames.size() - 1]
           //    ->addMiddlePoint(middle_point1, control_point1);
