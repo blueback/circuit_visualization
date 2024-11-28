@@ -57,6 +57,19 @@ void ExampleCircuit002::createCircuit(void) {
   addEdge(prev_m, output);
 }
 
+void ExampleCircuit003::createCircuit(void) {
+  // x ^ 3
+  const uint32_t input = addNode(InputNodeType, 0);
+  const uint32_t m1 = addNode(MultiplierType, 0);
+  const uint32_t m2 = addNode(MultiplierType, 0);
+  const uint32_t output = addNode(OutputNodeType, 0);
+  addEdge(input, m1);
+  addEdge(input, m1);
+  addEdge(input, m2);
+  addEdge(m1, m2);
+  addEdge(m2, output);
+}
+
 void IntegerFactorization::RegularAPCircuit::createCircuit(
     const uint32_t degree) {
 
@@ -132,6 +145,7 @@ void CircuitSolver::addOneCircuitToAnimate(CircuitModel *circuit) {
 void CircuitSolver::stackCircuitsToAnimate(void) {
   addOneCircuitToAnimate(new ExampleCircuit001());
   addOneCircuitToAnimate(new ExampleCircuit002());
+  addOneCircuitToAnimate(new ExampleCircuit003());
   addOneCircuitToAnimate(new IntegerFactorization::RegularAPCircuit(8));
   addOneCircuitToAnimate(new IntegerFactorization::Opt01Circuit(4));
 }

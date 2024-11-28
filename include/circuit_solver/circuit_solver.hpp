@@ -19,6 +19,14 @@ public:
   ExampleCircuit002(void) { createCircuit(); }
 };
 
+class ExampleCircuit003 : public CircuitModel {
+private:
+  void createCircuit(void);
+
+public:
+  ExampleCircuit003(void) { createCircuit(); }
+};
+
 namespace IntegerFactorization {
 
 class RegularAPCircuit : public CircuitModel {

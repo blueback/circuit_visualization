@@ -45,30 +45,32 @@ inline void CircuitAnimator::traverseCircuitLevelized(
         });
   }
 
-  layer++;
+  if (const_node_index_stk1.size()) {
+    layer++;
 
-  for (auto index : const_node_index_stk1) {
-    const IteratorStatus status = fn(index, layer);
+    for (auto index : const_node_index_stk1) {
+      const IteratorStatus status = fn(index, layer);
 
-    if (status == IterationBreak) {
-      return;
+      if (status == IterationBreak) {
+        return;
+      }
+
+      _circuit.getNode(index).forEachFanout(
+          [&](const uint32_t sink_index, const uint32_t count) {
+            visited_fanin_counts[sink_index] += count;
+
+            assert(visited_fanin_counts[sink_index] <=
+                   _circuit.getNode(sink_index).getFaninCount());
+
+            if (visited_fanin_counts[sink_index] ==
+                _circuit.getNode(sink_index).getFaninCount()) {
+
+              node_index_stk2.push_back(sink_index);
+            }
+
+            return IterationContinue;
+          });
     }
-
-    _circuit.getNode(index).forEachFanout(
-        [&](const uint32_t sink_index, const uint32_t count) {
-          visited_fanin_counts[sink_index] += count;
-
-          assert(visited_fanin_counts[sink_index] <=
-                 _circuit.getNode(sink_index).getFaninCount());
-
-          if (visited_fanin_counts[sink_index] ==
-              _circuit.getNode(sink_index).getFaninCount()) {
-
-            node_index_stk2.push_back(sink_index);
-          }
-
-          return IterationContinue;
-        });
   }
 
   node_index_stk1.swap(node_index_stk2);
@@ -218,11 +220,16 @@ void CircuitAnimator::finalizeLayout(void) {
 
         const float edge_count_inverse = 1.0f / (count + 1.0f);
 
+        float x_deviation = 0.0f;
+        if (floor(start_point.x) == floor(end_point.x)) {
+          x_deviation = 3.0f * getMaxNodeRadius();
+        }
+
         for (uint32_t i = 1; i <= count; i++) {
           const Vector2 mid_point =
               Vector2Lerp(start_point, end_point, i * edge_count_inverse);
 
-          const Vector2 start_control_point = {.x = end_point.x,
+          const Vector2 start_control_point = {.x = end_point.x + x_deviation,
                                                .y = mid_point.y};
 
           // const Vector2 mid_point =
