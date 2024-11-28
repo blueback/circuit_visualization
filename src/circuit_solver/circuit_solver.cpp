@@ -211,10 +211,14 @@ void CircuitSolver::solve() {
 }
 
 void CircuitSolver::drawVideoBackground(const bool use_mp) {
-  Color apap_color = ColorFromHSV(277, 0.35f, 0.57f);
-  Color mp_color = DARKBLUE;
-  Color bottom_color = use_mp ? mp_color : apap_color;
-  DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLUE, bottom_color);
+  // Color apap_color = ColorFromHSV(277, 0.35f, 0.57f);
+  // Color mp_color = DARKBLUE;
+  // Color bottom_color = use_mp ? mp_color : apap_color;
+  // DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLUE,
+  // bottom_color);
+  Color c1 = ColorFromHSV(148, 0.11f, 0.92f);
+  Color c2 = ColorFromHSV(162, 0.33f, 0.93f);
+  DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, c1, c2);
 }
 
 void CircuitSolver::render_video() {

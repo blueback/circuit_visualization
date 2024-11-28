@@ -55,7 +55,7 @@ private:
   static constexpr float SCREEN_HEIGHT = 1080;
   static constexpr Vector2 SCREEN_RESOLUTION = {.x = SCREEN_WIDTH,
                                                 .y = SCREEN_HEIGHT};
-  static constexpr float SCREEN_FPS = 60;
+  static constexpr float SCREEN_FPS = 120;
   static constexpr Rectangle SCREEN_RECT = {
       .x = 0, .y = 0, .width = SCREEN_WIDTH, .height = SCREEN_HEIGHT};
 
