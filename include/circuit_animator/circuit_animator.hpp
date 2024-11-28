@@ -193,7 +193,7 @@ private:
     return _arrow_final_end_control_point;
   }
 
-  inline Vector2 getArrowEndPoint(const float time) const {
+  inline Vector2 getCurrentArrowHeadPoint(const float time) const {
     Vector2 curr_end_point = getCurrentSegmentEndPoint(time);
     const Vector2 end_point = getEndPoint();
 
@@ -206,7 +206,7 @@ private:
     return curr_end_point;
   }
 
-  inline Vector2 getArrowEndControlPoint(const float time) const {
+  inline Vector2 getCurrentArrowHeadControlPoint(const float time) const {
     Vector2 end_control_point = getCurrentSegmentControlPoint(time);
     const Vector2 end_point = getEndPoint();
 
@@ -358,19 +358,20 @@ public:
       return false;
     }
 
-    const Vector2 arrow_end_point = getArrowEndPoint(time);
-    const Vector2 arrow_control_point = getArrowEndControlPoint(time);
+    const Vector2 arrow_head_point = getCurrentArrowHeadPoint(time);
+    const Vector2 arrow_head_control_point =
+        getCurrentArrowHeadControlPoint(time);
 
-    const Vector2 dir_vector =
-        Vector2Normalize(Vector2Subtract(arrow_control_point, arrow_end_point));
+    const Vector2 dir_vector = Vector2Normalize(
+        Vector2Subtract(arrow_head_control_point, arrow_head_point));
     const Vector2 v2_dir =
         Vector2Scale(Vector2Rotate(dir_vector, PI / 8.0f), 20.0f);
     const Vector2 v3_dir =
         Vector2Scale(Vector2Rotate(dir_vector, -PI / 8.0f), 20.0f);
 
-    v1 = arrow_end_point;
-    v2 = Vector2Add(arrow_end_point, v2_dir);
-    v3 = Vector2Add(arrow_end_point, v3_dir);
+    v1 = arrow_head_point;
+    v2 = Vector2Add(arrow_head_point, v2_dir);
+    v3 = Vector2Add(arrow_head_point, v3_dir);
 
     return true;
   }
@@ -382,6 +383,7 @@ private:
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
   static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
   static constexpr float EDGE_WIDTH = 4.0f;
+  static constexpr Color EDGE_COLOR = BLACK;
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
@@ -433,11 +435,12 @@ public:
       _edge_animation_frames[i]->forEachBezierQuadraticPoint(
           time, [&](const Vector2 point) { points.push_back(point); });
 
-      DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH, BLACK);
+      DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH,
+                                EDGE_COLOR);
 
       Vector2 v1, v2, v3;
       if (_edge_animation_frames[i]->getArrowPoints(time, v1, v2, v3)) {
-        DrawTriangle(v1, v2, v3, BLACK);
+        DrawTriangle(v1, v2, v3, EDGE_COLOR);
       }
     }
 
