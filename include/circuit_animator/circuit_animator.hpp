@@ -375,6 +375,16 @@ public:
 
     return true;
   }
+
+  inline bool getCurrentHeadPoint(const float time,
+                                  Vector2 &curr_head_point) const {
+    if (time < getStartTime() || time > getEndTime()) {
+      return false;
+    }
+
+    curr_head_point = getCurrentArrowHeadPoint(time);
+    return true;
+  }
 };
 
 class CircuitAnimator {
@@ -387,6 +397,7 @@ private:
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
+  const Color _screen_background_color;
   const Font _font;
 
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
@@ -418,8 +429,9 @@ public:
   CircuitAnimator(void) = delete;
 
   CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution,
-                  const float start_time)
+                  const Color screen_background_color, const float start_time)
       : _circuit(circuit), _screen_resolution(screen_resolution),
+        _screen_background_color(screen_background_color),
         _font(LoadFont("./resources/DotGothic16-Regular.ttf")),
         _animation_start_time(start_time) {
 
@@ -428,7 +440,16 @@ public:
     finalizeLayout();
   }
 
-  inline bool updateCircuitAnimation(const float time) {
+  inline bool updateCircuitAnimation(const float time) const {
+    for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
+      Vector2 curr_head_point;
+      if (_edge_animation_frames[i]->getCurrentHeadPoint(time,
+                                                         curr_head_point)) {
+        DrawCircleGradient(curr_head_point.x, curr_head_point.y, 100.0f, WHITE,
+                           Fade(_screen_background_color, 0.0f));
+      }
+    }
+
     for (size_t i = 0; i < _edge_animation_frames.size(); i++) {
       std::vector<Vector2> points;
 

@@ -68,6 +68,14 @@ private:
 
   void stackCircuitsToAnimate(void);
 
+  Color getBackgroundTopColor(void) const {
+    return ColorFromHSV(148, 0.11f, 0.92f);
+  }
+
+  Color getBackgroundBottomColor(void) const {
+    return ColorFromHSV(162, 0.33f, 0.93f);
+  }
+
   void drawVideoBackground(const bool use_mp);
 
   inline bool drawCircuits(const float time);

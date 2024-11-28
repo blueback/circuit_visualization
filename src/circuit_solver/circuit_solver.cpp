@@ -138,8 +138,8 @@ void CircuitSolver::addOneCircuitToAnimate(CircuitModel *circuit) {
     prev_end_time = _animators[_animators.size() - 1].getAnimationEndTime();
   }
   _circuits.push_back(circuit);
-  _animators.push_back(
-      CircuitAnimator(*circuit, SCREEN_RESOLUTION, prev_end_time));
+  _animators.push_back(CircuitAnimator(*circuit, SCREEN_RESOLUTION,
+                                       getBackgroundTopColor(), prev_end_time));
 }
 
 void CircuitSolver::stackCircuitsToAnimate(void) {
@@ -216,8 +216,8 @@ void CircuitSolver::drawVideoBackground(const bool use_mp) {
   // Color bottom_color = use_mp ? mp_color : apap_color;
   // DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLUE,
   // bottom_color);
-  Color c1 = ColorFromHSV(148, 0.11f, 0.92f);
-  Color c2 = ColorFromHSV(162, 0.33f, 0.93f);
+  Color c1 = getBackgroundTopColor();
+  Color c2 = getBackgroundBottomColor();
   DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, c1, c2);
 }
 
