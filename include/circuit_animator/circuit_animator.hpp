@@ -141,10 +141,8 @@ private:
   std::vector<Vector2> _control_points;
   float _segment_interval_time;
 
-  // TODO: temporary fix, need to do this before animation
   float _max_node_radius;
-  mutable Vector2 _arrow_final_end_point;
-  mutable Vector2 _arrow_final_end_control_point;
+  float _arrow_end_time;
 
 public:
   CircuitEdgeAnimKeyFrame(void) = delete;
@@ -157,65 +155,54 @@ public:
   CircuitEdgeAnimKeyFrame(const float start_time, const float end_time,
                           const Vector2 start_point, const Vector2 end_point,
                           const Vector2 start_control_point,
-                          const float max_node_radius)
+                          const float max_node_radius, const float fps)
       : CircuitAnimKeyFrame(start_time, end_time), _start_point(start_point),
         _end_point(end_point), _max_node_radius(max_node_radius) {
 
     assert(start_time < end_time);
     _segment_interval_time = (end_time - start_time);
     _control_points.push_back(start_control_point);
+    _arrow_end_time = calculateArrowEndTime(fps);
   }
 
-  void addMiddlePoint(const Vector2 point, const Vector2 control_point) {
+  void addMiddlePoint(const Vector2 point, const Vector2 control_point,
+                      const float fps) {
     _middle_points.push_back(point);
     const size_t segment_count = _middle_points.size() + 1;
     _segment_interval_time = (getEndTime() - getStartTime()) / segment_count;
     _control_points.push_back(control_point);
+    _arrow_end_time = calculateArrowEndTime(fps);
   }
 
 private:
+  inline float calculateArrowEndTime(const float fps) {
+    float frame_time = 0.5f / fps;
+
+    for (float time = getStartTime(); time < getEndTime(); time += frame_time) {
+      Vector2 curr_end_point = getCurrentSegmentEndPoint(time);
+      const Vector2 end_point = getEndPoint();
+
+      if (CheckCollisionPointCircle(curr_end_point, end_point,
+                                    getMaxNodeRadius())) {
+        return time;
+      }
+    }
+    return getEndTime();
+  }
+
   inline Vector2 getStartPoint(void) const { return _start_point; }
   inline Vector2 getEndPoint(void) const { return _end_point; }
   inline float getMaxNodeRadius(void) const { return _max_node_radius; }
 
-  inline void setArrowFinalPoint(const Vector2 arrow_final_point) const {
-    _arrow_final_end_point = arrow_final_point;
-  }
-  inline void
-  setArrowFinalControlPoint(const Vector2 arrow_final_control_point) const {
-    _arrow_final_end_control_point = arrow_final_control_point;
-  }
-
-  inline Vector2 getArrowFinalPoint(void) const {
-    return _arrow_final_end_point;
-  }
-  inline Vector2 getArrowFinalControlPoint(void) const {
-    return _arrow_final_end_control_point;
-  }
-
   inline Vector2 getCurrentArrowHeadPoint(const float time) const {
-    Vector2 curr_end_point = getCurrentSegmentEndPoint(time);
-    const Vector2 end_point = getEndPoint();
-
-    if (CheckCollisionPointCircle(curr_end_point, end_point,
-                                  getMaxNodeRadius())) {
-      curr_end_point = getArrowFinalPoint();
-    } else {
-      setArrowFinalPoint(curr_end_point);
-    }
+    const float clamped_time = Clamp(time, getStartTime(), _arrow_end_time);
+    Vector2 curr_end_point = getCurrentSegmentEndPoint(clamped_time);
     return curr_end_point;
   }
 
   inline Vector2 getCurrentArrowHeadControlPoint(const float time) const {
-    Vector2 end_control_point = getCurrentSegmentControlPoint(time);
-    const Vector2 end_point = getEndPoint();
-
-    if (CheckCollisionPointCircle(getCurrentSegmentEndPoint(time), end_point,
-                                  getMaxNodeRadius())) {
-      end_control_point = getArrowFinalControlPoint();
-    } else {
-      setArrowFinalControlPoint(end_control_point);
-    }
+    const float clamped_time = Clamp(time, getStartTime(), _arrow_end_time);
+    Vector2 end_control_point = getCurrentSegmentControlPoint(clamped_time);
     return end_control_point;
   }
 
@@ -398,6 +385,7 @@ private:
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
   const Color _screen_background_color;
+  const float _fps;
   const Font _font;
 
   std::vector<CircuitNodeAnimKeyFrame> _node_animation_frames;
@@ -429,9 +417,10 @@ public:
   CircuitAnimator(void) = delete;
 
   CircuitAnimator(const CircuitModel &circuit, const Vector2 screen_resolution,
-                  const Color screen_background_color, const float start_time)
+                  const Color screen_background_color, const float fps,
+                  const float start_time)
       : _circuit(circuit), _screen_resolution(screen_resolution),
-        _screen_background_color(screen_background_color),
+        _screen_background_color(screen_background_color), _fps(fps),
         _font(LoadFont("./resources/DotGothic16-Regular.ttf")),
         _animation_start_time(start_time) {
 

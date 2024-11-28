@@ -139,7 +139,8 @@ void CircuitSolver::addOneCircuitToAnimate(CircuitModel *circuit) {
   }
   _circuits.push_back(circuit);
   _animators.push_back(CircuitAnimator(*circuit, SCREEN_RESOLUTION,
-                                       getBackgroundTopColor(), prev_end_time));
+                                       getBackgroundTopColor(), SCREEN_FPS,
+                                       prev_end_time));
 }
 
 void CircuitSolver::stackCircuitsToAnimate(void) {
