@@ -196,6 +196,7 @@ void CircuitSolver::solve() {
       ClearBackground(DARKGRAY);
       BeginMode2D(camera);
       {
+        drawVideoBackground(true);
         DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
         bool should_continue = drawCircuits(curr_frame_time);
         if (!should_continue) {
@@ -207,6 +208,13 @@ void CircuitSolver::solve() {
     EndDrawing();
   }
   CloseWindow();
+}
+
+void CircuitSolver::drawVideoBackground(const bool use_mp) {
+  Color apap_color = ColorFromHSV(277, 0.35f, 0.57f);
+  Color mp_color = DARKBLUE;
+  Color bottom_color = use_mp ? mp_color : apap_color;
+  DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLUE, bottom_color);
 }
 
 void CircuitSolver::render_video() {
@@ -233,6 +241,7 @@ void CircuitSolver::render_video() {
       BeginTextureMode(render_screen);
       {
         ClearBackground(DARKGRAY);
+        drawVideoBackground(true);
         bool should_continue = drawCircuits(curr_frame_time);
         if (!should_continue) {
           break;

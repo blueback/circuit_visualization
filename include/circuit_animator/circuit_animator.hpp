@@ -22,23 +22,42 @@ class CircuitNodeAnimKeyFrame : public CircuitAnimKeyFrame {
 private:
   float _max_radius;
   Vector2 _center;
-  Color _color;
+  Color _outer_color;
+  Color _inner_color;
   char _label_codepoint;
 
   static constexpr Vector2 LABEL_DISPLACEMENT_RATIO = {.x = 0.25f, .y = 0.5f};
 
-  static inline Color findColor(const CircuitNodeType type) {
+  static inline Color findOuterColor(const CircuitNodeType type) {
     switch (type) {
     case AdderType:
       return BLUE;
     case MultiplierType:
       return RED;
     case ConstantType:
+      return LIME;
+    case InputNodeType:
+      return GOLD;
+    case OutputNodeType:
+      return MAROON;
+    default:
+      assert(0);
+      return BLACK;
+    };
+  }
+
+  static inline Color findInnerColor(const CircuitNodeType type) {
+    switch (type) {
+    case AdderType:
+      return SKYBLUE;
+    case MultiplierType:
+      return BEIGE;
+    case ConstantType:
       return GREEN;
     case InputNodeType:
       return YELLOW;
     case OutputNodeType:
-      return PURPLE;
+      return PINK;
     default:
       assert(0);
       return BLACK;
@@ -71,7 +90,8 @@ public:
                           const float max_radius, const Vector2 center,
                           const CircuitNodeType type, const uint32_t value)
       : CircuitAnimKeyFrame(start_time, end_time), _max_radius(max_radius),
-        _center(center), _color(findColor(type)),
+        _center(center), _outer_color(findOuterColor(type)),
+        _inner_color(findInnerColor(type)),
         _label_codepoint(findLabelCodepoint(type, value)) {}
 
   inline float getMaxRadius(void) const { return _max_radius; }
@@ -93,7 +113,9 @@ public:
 
   inline Vector2 getCenter(void) const { return _center; }
 
-  inline Color getColor(void) const { return _color; }
+  inline Color getOuterColor(void) const { return _outer_color; }
+
+  inline Color getInnerColor(void) const { return _inner_color; }
 
   inline char getLabelCodepoint(void) const { return _label_codepoint; }
 
@@ -283,7 +305,7 @@ private:
   static constexpr float KEY_FRAME_TIME = 0.40f;
   static constexpr float KEY_FRAME_OVERLAP_TIME = 0.10f;
   static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
-  static constexpr float EDGE_WIDTH = 2.0f;
+  static constexpr float EDGE_WIDTH = 4.0f;
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
@@ -335,15 +357,15 @@ public:
       _edge_animation_frames[i]->forEachBezierQuadraticPoint(
           time, [&](const Vector2 point) { points.push_back(point); });
 
-      DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH,
-                                LIGHTGRAY);
+      DrawSplineBezierQuadratic(&points[0], points.size(), EDGE_WIDTH, BLACK);
     }
 
     for (auto node_anim_frame : _node_animation_frames) {
       const float radius = node_anim_frame.getCurrentRadius(time);
       const Vector2 center = node_anim_frame.getCenter();
-      const Color color = node_anim_frame.getColor();
-      DrawCircleV(center, radius, color);
+      const Color outer_color = node_anim_frame.getOuterColor();
+      const Color inner_color = node_anim_frame.getInnerColor();
+      DrawCircleGradient(center.x, center.y, radius, inner_color, outer_color);
       DrawCircleLinesV(center, radius, RAYWHITE);
 
       const char label_codepoint = node_anim_frame.getLabelCodepoint();

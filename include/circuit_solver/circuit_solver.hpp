@@ -68,6 +68,8 @@ private:
 
   void stackCircuitsToAnimate(void);
 
+  void drawVideoBackground(const bool use_mp);
+
   inline bool drawCircuits(const float time);
 
 public:
