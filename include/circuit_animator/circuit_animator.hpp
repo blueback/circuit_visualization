@@ -243,19 +243,21 @@ private:
 private:
   void finalizeLayout(void);
 
-  void traverseCircuitLevelized(
+  inline void traverseCircuitLevelized(
       std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
       std::function<IteratorStatus(const uint32_t, const uint32_t,
                                    const uint32_t, const uint32_t)>
           fe) const;
 
-  uint32_t getNumberOfLayers(void) const;
+  inline uint32_t getNumberOfLayers(void) const;
 
-  float getInterLayerDistance(void) const;
+  inline float getInterLayerDistance(void) const;
 
-  uint32_t getLayerNodeCount(const uint32_t layer) const;
+  inline uint32_t getLayerNodeCount(const uint32_t layer) const;
 
-  float getLayerInterNodeDistance(const uint32_t layer) const;
+  inline float getLayerInterNodeDistance(const uint32_t layer) const;
+
+  inline float getMaxNodeRadius(void) const;
 
 public:
   CircuitAnimator(void) = delete;

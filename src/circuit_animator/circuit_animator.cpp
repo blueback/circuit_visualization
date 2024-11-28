@@ -1,6 +1,6 @@
 #include "circuit_animator/circuit_animator.hpp"
 
-void CircuitAnimator::traverseCircuitLevelized(
+inline void CircuitAnimator::traverseCircuitLevelized(
     std::function<IteratorStatus(const uint32_t, const uint32_t)> fn,
     std::function<IteratorStatus(const uint32_t, const uint32_t, const uint32_t,
                                  const uint32_t)>
@@ -117,7 +117,7 @@ void CircuitAnimator::traverseCircuitLevelized(
   }
 }
 
-uint32_t CircuitAnimator::getNumberOfLayers(void) const {
+inline uint32_t CircuitAnimator::getNumberOfLayers(void) const {
   uint32_t curr_layer = 0;
 
   traverseCircuitLevelized(
@@ -135,13 +135,13 @@ uint32_t CircuitAnimator::getNumberOfLayers(void) const {
   return curr_layer + 1;
 }
 
-float CircuitAnimator::getInterLayerDistance(void) const {
+inline float CircuitAnimator::getInterLayerDistance(void) const {
   const uint32_t layer_count = getNumberOfLayers();
   const float screen_height = _screen_resolution.y;
   return screen_height / (layer_count + 1.0f);
 }
 
-uint32_t CircuitAnimator::getLayerNodeCount(const uint32_t layer) const {
+inline uint32_t CircuitAnimator::getLayerNodeCount(const uint32_t layer) const {
   uint32_t layer_node_count(0);
   traverseCircuitLevelized(
       [&](const uint32_t, const uint32_t curr_layer) {
@@ -156,10 +156,21 @@ uint32_t CircuitAnimator::getLayerNodeCount(const uint32_t layer) const {
   return layer_node_count;
 }
 
-float CircuitAnimator::getLayerInterNodeDistance(const uint32_t layer) const {
+inline float
+CircuitAnimator::getLayerInterNodeDistance(const uint32_t layer) const {
   const uint32_t layer_node_count = getLayerNodeCount(layer);
   const float screen_width = _screen_resolution.x;
   return screen_width / (layer_node_count + 1);
+}
+
+inline float CircuitAnimator::getMaxNodeRadius(void) const {
+  const float max_node_radius = MAX_NODE_RADIUS_RATIO * _screen_resolution.y;
+  const float inter_layer_distance = getInterLayerDistance();
+  if (inter_layer_distance < 2.5f * max_node_radius) {
+    const float adjusted_max_node_radius = inter_layer_distance / 2.5f;
+    return adjusted_max_node_radius;
+  }
+  return max_node_radius;
 }
 
 void CircuitAnimator::finalizeLayout(void) {
@@ -182,9 +193,8 @@ void CircuitAnimator::finalizeLayout(void) {
         }
 
         _node_animation_frames.push_back(CircuitNodeAnimKeyFrame(
-            curr_time, curr_time + KEY_FRAME_TIME,
-            MAX_NODE_RADIUS_RATIO * _screen_resolution.y, curr_node_center,
-            _circuit.getNode(index).getType(),
+            curr_time, curr_time + KEY_FRAME_TIME, getMaxNodeRadius(),
+            curr_node_center, _circuit.getNode(index).getType(),
             _circuit.getNode(index).getValue()));
 
         printf("NODE_LAYOUT: index = %u, start_time = %f, end_time = %f\n",
