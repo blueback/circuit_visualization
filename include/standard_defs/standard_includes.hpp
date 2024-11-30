@@ -16,5 +16,6 @@
 #include <cstdio>
 #include <cstring>
 #include <string.h>
+#include <string>
 #include "raylib.h"
 #include "raymath.h"
