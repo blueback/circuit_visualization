@@ -223,6 +223,7 @@ __attribute__((noinline)) void copyarrINC05(uint16_t *arr, packed17_t *arr2) {
   }
 }
 
+#if PACKED_BLOCK_STRID
 void pack_16bit_to_17bit_block_strided_vectorized(const uint16_t *src,
                                                   uint8_t *dest,
                                                   size_t num_blocks) {
@@ -261,6 +262,54 @@ void pack_16bit_to_17bit_block_strided_vectorized(const uint16_t *src,
     // [Packing logic similar to the scalar implementation]
   }
 }
+#endif // PACKED_BLOCK_STRID
+
+size_t __attribute__((noinline)) access_speed_test(uint16_t *array16,
+                                                   const size_t size) {
+  size_t sum = 0;
+  for (size_t j = 0; j < 25; j++) {
+    for (size_t i = 0; i < size; i++) {
+      sum = (sum + array16[i]);
+    }
+  }
+  return sum;
+}
+
+size_t __attribute__((noinline)) access_speed_test(packed17_t *array17,
+                                                   const size_t size) {
+  size_t sum = 0;
+  for (size_t j = 0; j < 25; j++) {
+    for (size_t i = 0; i < size; i++) {
+      sum = (sum + array17[i].u.s.E1);
+      sum = (sum + array17[i].u.s.E2);
+      sum = (sum + array17[i].u.s.E3);
+      sum = (sum + array17[i].u.s.E4);
+      sum = (sum + array17[i].u.s.E5);
+      sum = (sum + array17[i].u.s.E6);
+      sum = (sum + array17[i].u.s.E7);
+      sum = (sum + array17[i].u.s.E8);
+    }
+  }
+  return sum;
+}
+
+size_t __attribute__((noinline)) access_speed_test(uint32_t *array32,
+                                                   const size_t size) {
+  size_t sum = 0;
+  for (size_t j = 0; j < 25; j++) {
+    for (size_t i = 0; i < size; i++) {
+      sum = (sum + array32[i]);
+    }
+  }
+  return sum;
+}
+
+__attribute__((noinline)) void memcpy_16_to_32_01(const uint16_t *src,
+                                                  uint32_t *dst, size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    dst[i] = src[i];
+  }
+}
 
 int main() {
   uint16_t *arr = static_cast<uint16_t *>(malloc(SZ * sizeof(uint16_t)));
@@ -268,6 +317,7 @@ int main() {
   // for (size_t i = 120; i < 150; i++) {
   //   printf("arr[%lu] = %hhu\n", i, arr[i]);
   // }
+#if PACKED17_COPY
   {
     assert((SZ & 7llu) == 0);
     uint16_t *arr_dest = static_cast<uint16_t *>(malloc(sizeof(uint16_t) * SZ));
@@ -384,6 +434,77 @@ int main() {
       assert(arr[i + 5] == arr_dest[j].u.s.E6);
       assert(arr[i + 6] == arr_dest[j].u.s.E7);
       assert(arr[i + 7] == arr_dest[j].u.s.E8);
+    }
+  }
+#endif
+  {
+    assert((SZ & 7llu) == 0);
+    packed17_t *arr_dest =
+        static_cast<packed17_t *>(malloc(sizeof(packed17_t) * (SZ >> 3)));
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      copyarrINC01(arr, arr_dest);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu\n", duration.count());
+    }
+    for (size_t i = 0, j = 0; i < SZ; i += 8, j++) {
+      assert(arr[i] == arr_dest[j].u.s.E1);
+      assert(arr[i + 1] == arr_dest[j].u.s.E2);
+      assert(arr[i + 2] == arr_dest[j].u.s.E3);
+      assert(arr[i + 3] == arr_dest[j].u.s.E4);
+      assert(arr[i + 4] == arr_dest[j].u.s.E5);
+      assert(arr[i + 5] == arr_dest[j].u.s.E6);
+      assert(arr[i + 6] == arr_dest[j].u.s.E7);
+      assert(arr[i + 7] == arr_dest[j].u.s.E8);
+    }
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      size_t sum = access_speed_test(arr, SZ);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu, sum = %lu\n", duration.count(), sum);
+    }
+    {
+      assert((SZ & 7llu) == 0);
+      auto start = std::chrono::high_resolution_clock::now();
+      size_t sum = access_speed_test(arr_dest, SZ >> 3llu);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu, sum = %lu\n", duration.count(), sum);
+    }
+  }
+  {
+    uint32_t *arr_dest = static_cast<uint32_t *>(malloc(sizeof(uint32_t) * SZ));
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      memcpy_16_to_32_01(arr, arr_dest, SZ);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu\n", duration.count());
+    }
+    for (size_t i = 0; i < SZ; i++) {
+      assert(arr[i] == arr_dest[i]);
+    }
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      size_t sum = access_speed_test(arr, SZ);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu, sum = %lu\n", duration.count(), sum);
+    }
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      size_t sum = access_speed_test(arr_dest, SZ);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu, sum = %lu\n", duration.count(), sum);
     }
   }
   return 0;
