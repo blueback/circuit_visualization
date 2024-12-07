@@ -78,7 +78,7 @@ void *aligned_malloc_multiple(size_t size, size_t alignment) {
                        (size + alignment - 1) / alignment * alignment);
 }
 
-#define SZ ((1lu << 28) * 3)
+#define SZ (1lu << 28)
 
 __attribute__((noinline)) void fill(uint16_t *arr) {
   for (size_t i = 0; i < SZ; i++) {
@@ -748,82 +748,83 @@ access_speed_test_16_to_12_06(packed12_t *array12, const size_t size) {
   __m256i sum_vec = _mm256_setzero_si256();
 
   __m256i mask_sum_vec_B1_V01 = {maskE01, 0, 0, maskE01};
-  __m256i mask_sum_vec_B2_V01 = {0, maskE01, 0, 0};
-  __m256i mask_sum_vec_B3_V01 = {0, 0, maskE01, 0};
+  __m256i mask_sum_vec_B2_V01 = {0, 0, maskE01, 0};
+  __m256i mask_sum_vec_B3_V01 = {0, maskE01, 0, 0};
 
   __m256i mask_sum_vec_B1_V02 = {maskE02, 0, 0, maskE02};
-  __m256i mask_sum_vec_B2_V02 = {0, maskE02, 0, 0};
-  __m256i mask_sum_vec_B3_V02 = {0, 0, maskE02, 0};
+  __m256i mask_sum_vec_B2_V02 = {0, 0, maskE02, 0};
+  __m256i mask_sum_vec_B3_V02 = {0, maskE02, 0, 0};
 
   __m256i mask_sum_vec_B1_V03 = {maskE03, 0, 0, maskE03};
-  __m256i mask_sum_vec_B2_V03 = {0, maskE03, 0, 0};
-  __m256i mask_sum_vec_B3_V03 = {0, 0, maskE03, 0};
+  __m256i mask_sum_vec_B2_V03 = {0, 0, maskE03, 0};
+  __m256i mask_sum_vec_B3_V03 = {0, maskE03, 0, 0};
 
   __m256i mask_sum_vec_B1_V04 = {maskE04, 0, 0, maskE04};
-  __m256i mask_sum_vec_B2_V04 = {0, maskE04, 0, 0};
-  __m256i mask_sum_vec_B3_V04 = {0, 0, maskE04, 0};
+  __m256i mask_sum_vec_B2_V04 = {0, 0, maskE04, 0};
+  __m256i mask_sum_vec_B3_V04 = {0, maskE04, 0, 0};
 
   __m256i mask_sum_vec_B1_V05 = {maskE05, 0, 0, maskE05};
-  __m256i mask_sum_vec_B2_V05 = {0, maskE05, 0, 0};
-  __m256i mask_sum_vec_B3_V05 = {0, 0, maskE05, 0};
+  __m256i mask_sum_vec_B2_V05 = {0, 0, maskE05, 0};
+  __m256i mask_sum_vec_B3_V05 = {0, maskE05, 0, 0};
 
   __m256i mask_sum_vec_B1_V06_1 = {static_cast<long long>(maskE06_1), 0, 0,
                                    static_cast<long long>(maskE06_1)};
-  __m256i mask_sum_vec_B2_V06_1 = {0, static_cast<long long>(maskE06_1), 0, 0};
-  __m256i mask_sum_vec_B3_V06_1 = {0, 0, static_cast<long long>(maskE06_1), 0};
+  __m256i mask_sum_vec_B2_V06_1 = {0, 0, static_cast<long long>(maskE06_1), 0};
+  __m256i mask_sum_vec_B3_V06_1 = {0, static_cast<long long>(maskE06_1), 0, 0};
 
-  __m256i mask_sum_vec_B1_V06_2 = {0, 0, maskE06_2, 0};
+  __m256i mask_sum_vec_B1_V06_2 = {0, maskE06_2, 0, 0};
   __m256i mask_sum_vec_B2_V06_2 = {maskE06_2, 0, 0, maskE06_2};
-  __m256i mask_sum_vec_B3_V06_2 = {0, maskE06_2, 0, 0};
+  __m256i mask_sum_vec_B3_V06_2 = {0, 0, maskE06_2, 0};
 
-  __m256i mask_sum_vec_B1_V07 = {0, 0, maskE07, 0};
+  __m256i mask_sum_vec_B1_V07 = {0, maskE07, 0, 0};
   __m256i mask_sum_vec_B2_V07 = {maskE07, 0, 0, maskE07};
-  __m256i mask_sum_vec_B3_V07 = {0, maskE07, 0, 0};
+  __m256i mask_sum_vec_B3_V07 = {0, 0, maskE07, 0};
 
-  __m256i mask_sum_vec_B1_V08 = {0, 0, maskE08, 0};
+  __m256i mask_sum_vec_B1_V08 = {0, maskE08, 0, 0};
   __m256i mask_sum_vec_B2_V08 = {maskE08, 0, 0, maskE08};
-  __m256i mask_sum_vec_B3_V08 = {0, maskE08, 0, 0};
+  __m256i mask_sum_vec_B3_V08 = {0, 0, maskE08, 0};
 
-  __m256i mask_sum_vec_B1_V09 = {0, 0, maskE09, 0};
+  __m256i mask_sum_vec_B1_V09 = {0, maskE09, 0, 0};
   __m256i mask_sum_vec_B2_V09 = {maskE09, 0, 0, maskE09};
-  __m256i mask_sum_vec_B3_V09 = {0, maskE09, 0, 0};
+  __m256i mask_sum_vec_B3_V09 = {0, 0, maskE09, 0};
 
-  __m256i mask_sum_vec_B1_V10 = {0, 0, maskE10, 0};
+  __m256i mask_sum_vec_B1_V10 = {0, maskE10, 0, 0};
   __m256i mask_sum_vec_B2_V10 = {maskE10, 0, 0, maskE10};
-  __m256i mask_sum_vec_B3_V10 = {0, maskE10, 0, 0};
+  __m256i mask_sum_vec_B3_V10 = {0, 0, maskE10, 0};
 
-  __m256i mask_sum_vec_B1_V11_1 = {0, 0, static_cast<long long>(maskE11_1), 0};
+  __m256i mask_sum_vec_B1_V11_1 = {0, static_cast<long long>(maskE11_1), 0, 0};
   __m256i mask_sum_vec_B2_V11_1 = {static_cast<long long>(maskE11_1), 0, 0,
                                    static_cast<long long>(maskE11_1)};
-  __m256i mask_sum_vec_B3_V11_1 = {0, static_cast<long long>(maskE11_1), 0, 0};
+  __m256i mask_sum_vec_B3_V11_1 = {0, 0, static_cast<long long>(maskE11_1), 0};
 
-  __m256i mask_sum_vec_B1_V11_2 = {0, maskE11_2, 0, 0};
-  __m256i mask_sum_vec_B2_V11_2 = {0, 0, maskE11_2, 0};
+  __m256i mask_sum_vec_B1_V11_2 = {0, 0, maskE11_2, 0};
+  __m256i mask_sum_vec_B2_V11_2 = {0, maskE11_2, 0, 0};
   __m256i mask_sum_vec_B3_V11_2 = {maskE11_2, 0, 0, maskE11_2};
 
-  __m256i mask_sum_vec_B1_V12 = {0, maskE12, 0, 0};
-  __m256i mask_sum_vec_B2_V12 = {0, 0, maskE12, 0};
+  __m256i mask_sum_vec_B1_V12 = {0, 0, maskE12, 0};
+  __m256i mask_sum_vec_B2_V12 = {0, maskE12, 0, 0};
   __m256i mask_sum_vec_B3_V12 = {maskE12, 0, 0, maskE12};
 
-  __m256i mask_sum_vec_B1_V13 = {0, maskE13, 0, 0};
-  __m256i mask_sum_vec_B2_V13 = {0, 0, maskE13, 0};
+  __m256i mask_sum_vec_B1_V13 = {0, 0, maskE13, 0};
+  __m256i mask_sum_vec_B2_V13 = {0, maskE13, 0, 0};
   __m256i mask_sum_vec_B3_V13 = {maskE13, 0, 0, maskE13};
 
-  __m256i mask_sum_vec_B1_V14 = {0, maskE14, 0, 0};
-  __m256i mask_sum_vec_B2_V14 = {0, 0, maskE14, 0};
+  __m256i mask_sum_vec_B1_V14 = {0, 0, maskE14, 0};
+  __m256i mask_sum_vec_B2_V14 = {0, maskE14, 0, 0};
   __m256i mask_sum_vec_B3_V14 = {maskE14, 0, 0, maskE14};
 
-  __m256i mask_sum_vec_B1_V15 = {0, maskE15, 0, 0};
-  __m256i mask_sum_vec_B2_V15 = {0, 0, maskE15, 0};
+  __m256i mask_sum_vec_B1_V15 = {0, 0, maskE15, 0};
+  __m256i mask_sum_vec_B2_V15 = {0, maskE15, 0, 0};
   __m256i mask_sum_vec_B3_V15 = {maskE15, 0, 0, maskE15};
 
-  __m256i mask_sum_vec_B1_V16 = {0, static_cast<long long>(maskE16), 0, 0};
-  __m256i mask_sum_vec_B2_V16 = {0, 0, static_cast<long long>(maskE16), 0};
+  __m256i mask_sum_vec_B1_V16 = {0, 0, static_cast<long long>(maskE16), 0};
+  __m256i mask_sum_vec_B2_V16 = {0, static_cast<long long>(maskE16), 0, 0};
   __m256i mask_sum_vec_B3_V16 = {static_cast<long long>(maskE16), 0, 0,
                                  static_cast<long long>(maskE16)};
 
   for (size_t j = 0; j < NUM_OF_SCANS; j++) {
-    for (size_t i = 0; i < sz_tmp; i += 96) { // Step by 3 bytes per packed12_t
+    size_t i = 0;
+    for (; i < sz_tmp; i += 96) { // Step by 3 bytes per packed12_t
 
       // Load 32-bit data from arr_tmp. We load 4 bytes at a time, since we're
       // using 32-bit registers.
@@ -991,6 +992,7 @@ access_speed_test_16_to_12_06(packed12_t *array12, const size_t size) {
       sum_vec = _mm256_add_epi64(sum_vec, masked_val_V15);
       sum_vec = _mm256_add_epi64(sum_vec, masked_val_V16);
     }
+    // assert(i == sz_tmp);
   }
 
   // Perform a horizontal sum to reduce the vector to a scalar
