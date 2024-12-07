@@ -74,6 +74,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
 # Set vector instructions compile flags
 #
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+                    -O3 \
                     -mmmx \
                     -mavx \
                     -mavx2\

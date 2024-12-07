@@ -78,7 +78,7 @@ void *aligned_malloc_multiple(size_t size, size_t alignment) {
                        (size + alignment - 1) / alignment * alignment);
 }
 
-#define SZ (1lu << 28)
+#define SZ ((1lu << 28) * 3)
 
 __attribute__((noinline)) void fill(uint16_t *arr) {
   for (size_t i = 0; i < SZ; i++) {
@@ -1313,8 +1313,8 @@ int main() {
   }
   {
     assert((SZ & 7llu) == 0);
-    packed12_t *arr_dest =
-        static_cast<packed12_t *>(malloc(sizeof(packed12_t) * (SZ >> 1llu)));
+    packed12_t *arr_dest = static_cast<packed12_t *>(
+        aligned_malloc_multiple(sizeof(packed12_t) * (SZ >> 1llu), 32));
     {
       auto start = std::chrono::high_resolution_clock::now();
       memcpy_16_to_12_01(arr, arr_dest);
