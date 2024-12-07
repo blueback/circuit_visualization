@@ -21,7 +21,8 @@
 ##     -mtune=intel"
 
 export OPTS="-mmmx \
-    -mavx2\
+    -O3 \
+    -mavx2 \
     -mavxvnni\
     -mfma \
     -mbmi \
@@ -36,6 +37,6 @@ export OPTS="-mmmx \
 
 echo $OPTS
 
-g++ tmp.cpp -S tmp.s ${OPTS}
+g++ src/tmp.cpp -S tmp.s ${OPTS}
 
-g++ tmp.cpp -o tmp.out ${OPTS}
+#g++ src/tmp.cpp -o build/tmp.out ${OPTS}
