@@ -1033,78 +1033,6 @@ access_speed_test_16_to_12_07(packed12_t *array12, const size_t size) {
   const uint64_t maskE15 = 0x000FFF0000000000;
   const uint64_t maskE16 = 0xFFF0000000000000;
 
-#if 0
-  __v4du maskVE01 = {0, 0, 0, maskE01};
-  __v4du maskVE02 = {0, 0, 0, maskE02};
-  __v4du maskVE03 = {0, 0, 0, maskE03};
-  __v4du maskVE04 = {0, 0, 0, maskE04};
-  __v4du maskVE05 = {0, 0, 0, maskE05};
-  __v4du maskVE06 = {0, 0, maskE06_2, maskE06_1};
-  __v4du maskVE07 = {0, 0, maskE07, 0};
-  __v4du maskVE08 = {0, 0, maskE08, 0};
-  __v4du maskVE09 = {0, 0, maskE09, 0};
-  __v4du maskVE10 = {0, 0, maskE10, 0};
-  __v4du maskVE11 = {0, maskE11_2, maskE11_1, 0};
-  __v4du maskVE12 = {0, maskE12, 0, 0};
-  __v4du maskVE13 = {0, maskE13, 0, 0};
-  __v4du maskVE14 = {0, maskE14, 0, 0};
-  __v4du maskVE15 = {0, maskE15, 0, 0};
-  __v4du maskVE16 = {0, maskE16, 0, 0};
-
-  __v4du maskVE17 = {maskE01, 0, 0, 0};
-  __v4du maskVE18 = {maskE02, 0, 0, 0};
-  __v4du maskVE19 = {maskE03, 0, 0, 0};
-  __v4du maskVE20 = {maskE04, 0, 0, 0};
-  __v4du maskVE21 = {maskE05, 0, 0, 0};
-  __v4du maskVE22_1 = {maskE06_1, 0, 0, 0};
-  __v4du maskVE22_2 = {0, 0, 0, maskE06_2};
-  __v4du maskVE23 = {0, 0, 0, maskE07};
-  __v4du maskVE24 = {0, 0, 0, maskE08};
-  __v4du maskVE25 = {0, 0, 0, maskE09};
-  __v4du maskVE26 = {0, 0, 0, maskE10};
-  __v4du maskVE27 = {0, 0, maskE11_2, maskE11_1};
-  __v4du maskVE28 = {0, 0, maskE12, 0};
-  __v4du maskVE29 = {0, 0, maskE13, 0};
-  __v4du maskVE30 = {0, 0, maskE14, 0};
-  __v4du maskVE31 = {0, 0, maskE15, 0};
-  __v4du maskVE32 = {0, 0, maskE16, 0};
-
-  __v4du maskVE33 = {0, maskE01, 0, 0};
-  __v4du maskVE34 = {0, maskE02, 0, 0};
-  __v4du maskVE35 = {0, maskE03, 0, 0};
-  __v4du maskVE36 = {0, maskE04, 0, 0};
-  __v4du maskVE37 = {0, maskE05, 0, 0};
-  __v4du maskVE38 = {maskE06_2, maskE06_1, 0, 0};
-  __v4du maskVE39 = {maskE07, 0, 0, 0};
-  __v4du maskVE40 = {maskE08, 0, 0, 0};
-  __v4du maskVE41 = {maskE09, 0, 0, 0};
-  __v4du maskVE42 = {maskE10, 0, 0, 0};
-  __v4du maskVE43_1 = {maskE11_1, 0, 0, 0};
-  __v4du maskVE43_2 = {0, 0, 0, maskE11_2};
-  __v4du maskVE44 = {0, 0, 0, maskE12};
-  __v4du maskVE45 = {0, 0, 0, maskE13};
-  __v4du maskVE46 = {0, 0, 0, maskE14};
-  __v4du maskVE47 = {0, 0, 0, maskE15};
-  __v4du maskVE48 = {0, 0, 0, maskE16};
-
-  __v4du maskVE49 = {0, 0, maskE01, 0};
-  __v4du maskVE50 = {0, 0, maskE02, 0};
-  __v4du maskVE51 = {0, 0, maskE03, 0};
-  __v4du maskVE52 = {0, 0, maskE04, 0};
-  __v4du maskVE53 = {0, 0, maskE05, 0};
-  __v4du maskVE54 = {0, maskE06_2, maskE06_1, 0};
-  __v4du maskVE55 = {0, maskE07, 0, 0};
-  __v4du maskVE56 = {0, maskE08, 0, 0};
-  __v4du maskVE57 = {0, maskE09, 0, 0};
-  __v4du maskVE58 = {0, maskE10, 0, 0};
-  __v4du maskVE59 = {maskE11_2, maskE11_1, 0, 0};
-  __v4du maskVE60 = {maskE12, 0, 0, 0};
-  __v4du maskVE61 = {maskE13, 0, 0, 0};
-  __v4du maskVE62 = {maskE14, 0, 0, 0};
-  __v4du maskVE63 = {maskE15, 0, 0, 0};
-  __v4du maskVE64 = {maskE16, 0, 0, 0};
-#endif
-
   // Initialize vector to accumulate the sum
   __m256i sum_vec_V01 = _mm256_setzero_si256();
   __m256i sum_vec_V02 = _mm256_setzero_si256();
@@ -1431,6 +1359,648 @@ access_speed_test_16_to_12_07(packed12_t *array12, const size_t size) {
     sum += tmp_sum_V14[k];
     sum += tmp_sum_V15[k];
     sum += tmp_sum_V16[k];
+  }
+
+  return sum;
+}
+
+size_t __attribute__((noinline))
+access_speed_test_16_to_12_08(packed12_t *array12, const size_t size) {
+  size_t sum = 0;
+  uint8_t *arr_tmp = reinterpret_cast<uint8_t *>(array12);
+  size_t sz_tmp = sizeof(packed12_t) * size;
+
+  // 12-bit mask for the upper part
+  const uint64_t maskE01 = 0x0000000000000FFF;
+  const uint64_t maskE02 = 0x0000000000FFF000;
+  const uint64_t maskE03 = 0x0000000FFF000000;
+  const uint64_t maskE04 = 0x0000FFF000000000;
+  const uint64_t maskE05 = 0x0FFF000000000000;
+  const uint64_t maskE06_1 = 0xF000000000000000;
+  const uint64_t maskE06_2 = 0x00000000000000FF;
+  const uint64_t maskE07 = 0x00000000000FFF00;
+  const uint64_t maskE08 = 0x00000000FFF00000;
+  const uint64_t maskE09 = 0x00000FFF00000000;
+  const uint64_t maskE10 = 0x00FFF00000000000;
+  const uint64_t maskE11_1 = 0xFF00000000000000;
+  const uint64_t maskE11_2 = 0x000000000000000F;
+  const uint64_t maskE12 = 0x000000000000FFF0;
+  const uint64_t maskE13 = 0x000000000FFF0000;
+  const uint64_t maskE14 = 0x000000FFF0000000;
+  const uint64_t maskE15 = 0x000FFF0000000000;
+  const uint64_t maskE16 = 0xFFF0000000000000;
+
+  // Initialize vector to accumulate the sum
+  __m256i sum_vec_V01 = _mm256_setzero_si256();
+  __m256i sum_vec_V02 = _mm256_setzero_si256();
+  __m256i sum_vec_V03 = _mm256_setzero_si256();
+  __m256i sum_vec_V04 = _mm256_setzero_si256();
+  __m256i sum_vec_V05 = _mm256_setzero_si256();
+  __m256i sum_vec_V06_1 = _mm256_setzero_si256();
+  __m256i sum_vec_V06_2 = _mm256_setzero_si256();
+  __m256i sum_vec_V07 = _mm256_setzero_si256();
+  __m256i sum_vec_V08 = _mm256_setzero_si256();
+  __m256i sum_vec_V09 = _mm256_setzero_si256();
+  __m256i sum_vec_V10 = _mm256_setzero_si256();
+  __m256i sum_vec_V11_1 = _mm256_setzero_si256();
+  __m256i sum_vec_V11_2 = _mm256_setzero_si256();
+  __m256i sum_vec_V12 = _mm256_setzero_si256();
+  __m256i sum_vec_V13 = _mm256_setzero_si256();
+  __m256i sum_vec_V14 = _mm256_setzero_si256();
+  __m256i sum_vec_V15 = _mm256_setzero_si256();
+  __m256i sum_vec_V16 = _mm256_setzero_si256();
+
+  __m256i mask_sum_vec_B1_V01 = {maskE01, 0, 0, maskE01};
+  __m256i mask_sum_vec_B2_V01 = {0, 0, maskE01, 0};
+  __m256i mask_sum_vec_B3_V01 = {0, maskE01, 0, 0};
+
+  __m256i mask_sum_vec_B1_V02 = {maskE02, 0, 0, maskE02};
+  __m256i mask_sum_vec_B2_V02 = {0, 0, maskE02, 0};
+  __m256i mask_sum_vec_B3_V02 = {0, maskE02, 0, 0};
+
+  __m256i mask_sum_vec_B1_V03 = {maskE03, 0, 0, maskE03};
+  __m256i mask_sum_vec_B2_V03 = {0, 0, maskE03, 0};
+  __m256i mask_sum_vec_B3_V03 = {0, maskE03, 0, 0};
+
+  __m256i mask_sum_vec_B1_V04 = {maskE04, 0, 0, maskE04};
+  __m256i mask_sum_vec_B2_V04 = {0, 0, maskE04, 0};
+  __m256i mask_sum_vec_B3_V04 = {0, maskE04, 0, 0};
+
+  __m256i mask_sum_vec_B1_V05 = {maskE05, 0, 0, maskE05};
+  __m256i mask_sum_vec_B2_V05 = {0, 0, maskE05, 0};
+  __m256i mask_sum_vec_B3_V05 = {0, maskE05, 0, 0};
+
+  __m256i mask_sum_vec_B1_V06_1 = {static_cast<long long>(maskE06_1), 0, 0,
+                                   static_cast<long long>(maskE06_1)};
+  __m256i mask_sum_vec_B2_V06_1 = {0, 0, static_cast<long long>(maskE06_1), 0};
+  __m256i mask_sum_vec_B3_V06_1 = {0, static_cast<long long>(maskE06_1), 0, 0};
+
+  __m256i mask_sum_vec_B1_V06_2 = {0, maskE06_2, 0, 0};
+  __m256i mask_sum_vec_B2_V06_2 = {maskE06_2, 0, 0, maskE06_2};
+  __m256i mask_sum_vec_B3_V06_2 = {0, 0, maskE06_2, 0};
+
+  __m256i mask_sum_vec_B1_V07 = {0, maskE07, 0, 0};
+  __m256i mask_sum_vec_B2_V07 = {maskE07, 0, 0, maskE07};
+  __m256i mask_sum_vec_B3_V07 = {0, 0, maskE07, 0};
+
+  __m256i mask_sum_vec_B1_V08 = {0, maskE08, 0, 0};
+  __m256i mask_sum_vec_B2_V08 = {maskE08, 0, 0, maskE08};
+  __m256i mask_sum_vec_B3_V08 = {0, 0, maskE08, 0};
+
+  __m256i mask_sum_vec_B1_V09 = {0, maskE09, 0, 0};
+  __m256i mask_sum_vec_B2_V09 = {maskE09, 0, 0, maskE09};
+  __m256i mask_sum_vec_B3_V09 = {0, 0, maskE09, 0};
+
+  __m256i mask_sum_vec_B1_V10 = {0, maskE10, 0, 0};
+  __m256i mask_sum_vec_B2_V10 = {maskE10, 0, 0, maskE10};
+  __m256i mask_sum_vec_B3_V10 = {0, 0, maskE10, 0};
+
+  __m256i mask_sum_vec_B1_V11_1 = {0, static_cast<long long>(maskE11_1), 0, 0};
+  __m256i mask_sum_vec_B2_V11_1 = {static_cast<long long>(maskE11_1), 0, 0,
+                                   static_cast<long long>(maskE11_1)};
+  __m256i mask_sum_vec_B3_V11_1 = {0, 0, static_cast<long long>(maskE11_1), 0};
+
+  __m256i mask_sum_vec_B1_V11_2 = {0, 0, maskE11_2, 0};
+  __m256i mask_sum_vec_B2_V11_2 = {0, maskE11_2, 0, 0};
+  __m256i mask_sum_vec_B3_V11_2 = {maskE11_2, 0, 0, maskE11_2};
+
+  __m256i mask_sum_vec_B1_V12 = {0, 0, maskE12, 0};
+  __m256i mask_sum_vec_B2_V12 = {0, maskE12, 0, 0};
+  __m256i mask_sum_vec_B3_V12 = {maskE12, 0, 0, maskE12};
+
+  __m256i mask_sum_vec_B1_V13 = {0, 0, maskE13, 0};
+  __m256i mask_sum_vec_B2_V13 = {0, maskE13, 0, 0};
+  __m256i mask_sum_vec_B3_V13 = {maskE13, 0, 0, maskE13};
+
+  __m256i mask_sum_vec_B1_V14 = {0, 0, maskE14, 0};
+  __m256i mask_sum_vec_B2_V14 = {0, maskE14, 0, 0};
+  __m256i mask_sum_vec_B3_V14 = {maskE14, 0, 0, maskE14};
+
+  __m256i mask_sum_vec_B1_V15 = {0, 0, maskE15, 0};
+  __m256i mask_sum_vec_B2_V15 = {0, maskE15, 0, 0};
+  __m256i mask_sum_vec_B3_V15 = {maskE15, 0, 0, maskE15};
+
+  __m256i mask_sum_vec_B1_V16 = {0, 0, static_cast<long long>(maskE16), 0};
+  __m256i mask_sum_vec_B2_V16 = {0, static_cast<long long>(maskE16), 0, 0};
+  __m256i mask_sum_vec_B3_V16 = {static_cast<long long>(maskE16), 0, 0,
+                                 static_cast<long long>(maskE16)};
+
+  for (size_t j = 0; j < NUM_OF_SCANS; j++) {
+    size_t i = 0;
+    for (; i < sz_tmp; i += 96) { // Step by 3 bytes per packed12_t
+
+      // Load 32-bit data from arr_tmp. We load 4 bytes at a time, since we're
+      // using 32-bit registers.
+      __m256i data_W1 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i));
+      __m256i data_W2 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i + 32));
+      __m256i data_W3 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i + 64));
+
+      __m256i masked_val_V01 = _mm256_or_si256(
+          _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V01, data_W1),
+                          _mm256_and_si256(mask_sum_vec_B2_V01, data_W2)),
+          _mm256_and_si256(mask_sum_vec_B3_V01, data_W3));
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V02 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V02, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V02, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V02, data_W3)),
+          12);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V03 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V03, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V03, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V03, data_W3)),
+          24);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V04 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V04, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V04, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V04, data_W3)),
+          36);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V05 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V05, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V05, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V05, data_W3)),
+          48);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V06_1 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V06_1, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V06_1, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V06_1, data_W3)),
+          60);
+      __m256i masked_val_V06_2 = _mm256_slli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V06_2, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V06_2, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V06_2, data_W3)),
+          4);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V07 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V07, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V07, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V07, data_W3)),
+          8);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V08 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V08, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V08, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V08, data_W3)),
+          20);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V09 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V09, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V09, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V09, data_W3)),
+          32);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V10 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V10, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V10, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V10, data_W3)),
+          44);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V11_1 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V11_1, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V11_1, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V11_1, data_W3)),
+          56);
+      __m256i masked_val_V11_2 = _mm256_slli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V11_2, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V11_2, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V11_2, data_W3)),
+          8);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V12 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V12, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V12, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V12, data_W3)),
+          4);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V13 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V13, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V13, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V13, data_W3)),
+          16);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V14 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V14, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V14, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V14, data_W3)),
+          28);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V15 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V15, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V15, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V15, data_W3)),
+          40);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V16 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(_mm256_and_si256(mask_sum_vec_B1_V16, data_W1),
+                              _mm256_and_si256(mask_sum_vec_B2_V16, data_W2)),
+              _mm256_and_si256(mask_sum_vec_B3_V16, data_W3)),
+          52);
+
+      // Accumulate the results into sum_vec
+      sum_vec_V01 = _mm256_add_epi64(sum_vec_V01, masked_val_V01);
+      sum_vec_V02 = _mm256_add_epi64(sum_vec_V02, masked_val_V02);
+      sum_vec_V03 = _mm256_add_epi64(sum_vec_V03, masked_val_V03);
+      sum_vec_V04 = _mm256_add_epi64(sum_vec_V04, masked_val_V04);
+      sum_vec_V05 = _mm256_add_epi64(sum_vec_V05, masked_val_V05);
+      sum_vec_V06_1 = _mm256_add_epi64(sum_vec_V06_1, masked_val_V06_1);
+      sum_vec_V06_2 = _mm256_add_epi64(sum_vec_V06_2, masked_val_V06_2);
+      sum_vec_V07 = _mm256_add_epi64(sum_vec_V07, masked_val_V07);
+      sum_vec_V08 = _mm256_add_epi64(sum_vec_V08, masked_val_V08);
+      sum_vec_V09 = _mm256_add_epi64(sum_vec_V09, masked_val_V09);
+      sum_vec_V10 = _mm256_add_epi64(sum_vec_V10, masked_val_V10);
+      sum_vec_V11_1 = _mm256_add_epi64(sum_vec_V11_1, masked_val_V11_1);
+      sum_vec_V11_2 = _mm256_add_epi64(sum_vec_V11_2, masked_val_V11_2);
+      sum_vec_V12 = _mm256_add_epi64(sum_vec_V12, masked_val_V12);
+      sum_vec_V13 = _mm256_add_epi64(sum_vec_V13, masked_val_V13);
+      sum_vec_V14 = _mm256_add_epi64(sum_vec_V14, masked_val_V14);
+      sum_vec_V15 = _mm256_add_epi64(sum_vec_V15, masked_val_V15);
+      sum_vec_V16 = _mm256_add_epi64(sum_vec_V16, masked_val_V16);
+    }
+    // assert(i == sz_tmp);
+  }
+
+  // Perform a horizontal sum to reduce the vector to a scalar
+  uint64_t tmp_sum_V01[4];
+  uint64_t tmp_sum_V02[4];
+  uint64_t tmp_sum_V03[4];
+  uint64_t tmp_sum_V04[4];
+  uint64_t tmp_sum_V05[4];
+  uint64_t tmp_sum_V06_1[4];
+  uint64_t tmp_sum_V06_2[4];
+  uint64_t tmp_sum_V07[4];
+  uint64_t tmp_sum_V08[4];
+  uint64_t tmp_sum_V09[4];
+  uint64_t tmp_sum_V10[4];
+  uint64_t tmp_sum_V11_1[4];
+  uint64_t tmp_sum_V11_2[4];
+  uint64_t tmp_sum_V12[4];
+  uint64_t tmp_sum_V13[4];
+  uint64_t tmp_sum_V14[4];
+  uint64_t tmp_sum_V15[4];
+  uint64_t tmp_sum_V16[4];
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V01), sum_vec_V01);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V02), sum_vec_V02);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V03), sum_vec_V03);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V04), sum_vec_V04);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V05), sum_vec_V05);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V06_1), sum_vec_V06_1);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V06_2), sum_vec_V06_2);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V07), sum_vec_V07);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V08), sum_vec_V08);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V09), sum_vec_V09);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V10), sum_vec_V10);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V11_1), sum_vec_V11_1);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V11_2), sum_vec_V11_2);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V12), sum_vec_V12);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V13), sum_vec_V13);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V14), sum_vec_V14);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V15), sum_vec_V15);
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum_V16), sum_vec_V16);
+
+  uint64_t tmp_sum[18] = {0};
+
+  // Sum the elements in tmp_sum to get the final scalar sum
+  for (size_t k = 0; k < 4; k++) {
+    tmp_sum[0] += tmp_sum_V01[k];
+    tmp_sum[1] += tmp_sum_V02[k];
+    tmp_sum[2] += tmp_sum_V03[k];
+    tmp_sum[3] += tmp_sum_V04[k];
+    tmp_sum[4] += tmp_sum_V05[k];
+    tmp_sum[5] += tmp_sum_V06_1[k];
+    tmp_sum[6] += tmp_sum_V06_2[k];
+    tmp_sum[7] += tmp_sum_V07[k];
+    tmp_sum[8] += tmp_sum_V08[k];
+    tmp_sum[9] += tmp_sum_V09[k];
+    tmp_sum[10] += tmp_sum_V10[k];
+    tmp_sum[11] += tmp_sum_V11_1[k];
+    tmp_sum[12] += tmp_sum_V11_2[k];
+    tmp_sum[13] += tmp_sum_V12[k];
+    tmp_sum[14] += tmp_sum_V13[k];
+    tmp_sum[15] += tmp_sum_V14[k];
+    tmp_sum[16] += tmp_sum_V15[k];
+    tmp_sum[17] += tmp_sum_V16[k];
+  }
+
+  for (size_t k = 0; k < 18; k++) {
+    sum += tmp_sum[k];
+  }
+
+  return sum;
+}
+
+size_t __attribute__((noinline))
+access_speed_test_16_to_12_09_32bitSum(packed12_t *array12, const size_t size) {
+  uint32_t sum = 0;
+  uint8_t *arr_tmp = reinterpret_cast<uint8_t *>(array12);
+  size_t sz_tmp = sizeof(packed12_t) * size;
+  const uint32_t maskE1 = 0xFFF;
+  const uint32_t maskE2 = 0xFFF000;
+  for (size_t j = 0; j < NUM_OF_SCANS; j++) {
+    for (size_t i = 0; i < sz_tmp; i += 3) {
+      const uint32_t unmasked_val =
+          *(reinterpret_cast<uint32_t *>(arr_tmp + i));
+      const uint32_t masked_val01 = (unmasked_val & maskE1);
+      const uint32_t masked_val02 = (unmasked_val & maskE2);
+      const uint32_t shifted_val = masked_val02 >> 12llu;
+      sum = (sum + masked_val01 + shifted_val);
+    }
+  }
+  return sum;
+}
+
+size_t __attribute__((noinline))
+access_speed_test_16_to_12_10_32bitSum(packed12_t *array12, const size_t size) {
+  uint32_t sum = 0;
+  uint8_t *arr_tmp = reinterpret_cast<uint8_t *>(array12);
+  size_t sz_tmp = sizeof(packed12_t) * size;
+
+  // 12-bit mask for the upper part
+  const uint32_t maskE01__ = 0x00000FFF;
+  const uint32_t maskE02__ = 0x00FFF000;
+  const uint32_t maskE03_1 = 0xFF000000;
+  const uint32_t maskE03_2 = 0x0000000F;
+  const uint32_t maskE04__ = 0x0000FFF0;
+  const uint32_t maskE05__ = 0x0FFF0000;
+  const uint32_t maskE06_1 = 0xF0000000;
+  const uint32_t maskE06_2 = 0x000000FF;
+  const uint32_t maskE07__ = 0x000FFF00;
+  const uint32_t maskE08__ = 0xFFF00000;
+
+#if 0
+  __v8su maskVE01__ = {maskE01__, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE02__ = {maskE02__, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE03__ = {maskE03_1, maskE03_2, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE04__ = {0, maskE04__, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE05__ = {0, maskE05__, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE06__ = {0, maskE06_1, maskE06_2, 0, 0, 0, 0, 0};
+  __v8su maskVE07__ = {0, 0, maskE07__, 0, 0, 0, 0, 0};
+  __v8su maskVE08__ = {0, 0, maskE08__, 0, 0, 0, 0, 0};
+
+  __v8su maskVE09__ = {0, 0, 0, maskE01__, 0, 0, 0, 0};
+  __v8su maskVE10__ = {0, 0, 0, maskE02__, 0, 0, 0, 0};
+  __v8su maskVE11__ = {0, 0, 0, maskE03_1, maskE03_2, 0, 0, 0};
+  __v8su maskVE12__ = {0, 0, 0, 0, maskE04__, 0, 0, 0};
+  __v8su maskVE13__ = {0, 0, 0, 0, maskE05__, 0, 0, 0};
+  __v8su maskVE14__ = {0, 0, 0, 0, maskE06_1, maskE06_2, 0, 0};
+  __v8su maskVE15__ = {0, 0, 0, 0, 0, maskE07__, 0, 0};
+  __v8su maskVE16__ = {0, 0, 0, 0, 0, maskE08__, 0, 0};
+
+  __v8su maskVE17__ = {0, 0, 0, 0, 0, 0, maskE01__, 0};
+  __v8su maskVE18__ = {0, 0, 0, 0, 0, 0, maskE02__, 0};
+  __v8su maskVE19__ = {0, 0, 0, 0, 0, 0, maskE03_1, maskE03_2};
+  __v8su maskVE20__ = {0, 0, 0, 0, 0, 0, 0, maskE04__};
+  __v8su maskVE21__ = {0, 0, 0, 0, 0, 0, 0, maskE05__};
+  __v8su maskVE22_1 = {0, 0, 0, 0, 0, 0, 0, maskE06_1};
+  __v8su maskVE22_2 = {maskE06_2, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE23__ = {maskE07__, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE24__ = {maskE08__, 0, 0, 0, 0, 0, 0, 0};
+
+  __v8su maskVE25__ = {0, maskE01__, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE26__ = {0, maskE02__, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE27__ = {0, maskE03_1, maskE03_2, 0, 0, 0, 0, 0};
+  __v8su maskVE28__ = {0, 0, maskE04__, 0, 0, 0, 0, 0};
+  __v8su maskVE29__ = {0, 0, maskE05__, 0, 0, 0, 0, 0};
+  __v8su maskVE30__ = {0, 0, maskE06_1, maskE06_2, 0, 0, 0, 0};
+  __v8su maskVE31__ = {0, 0, 0, maskE07__, 0, 0, 0, 0};
+  __v8su maskVE32__ = {0, 0, 0, maskE08__, 0, 0, 0, 0};
+
+  __v8su maskVE33__ = {0, 0, 0, 0, maskE01__, 0, 0, 0};
+  __v8su maskVE34__ = {0, 0, 0, 0, maskE02__, 0, 0, 0};
+  __v8su maskVE35__ = {0, 0, 0, 0, maskE03_1, maskE03_2, 0, 0};
+  __v8su maskVE36__ = {0, 0, 0, 0, 0, maskE04__, 0, 0};
+  __v8su maskVE37__ = {0, 0, 0, 0, 0, maskE05__, 0, 0};
+  __v8su maskVE38__ = {0, 0, 0, 0, 0, maskE06_1, maskE06_2, 0};
+  __v8su maskVE39__ = {0, 0, 0, 0, 0, 0, maskE07__, 0};
+  __v8su maskVE40__ = {0, 0, 0, 0, 0, 0, maskE08__, 0};
+
+  __v8su maskVE41__ = {0, 0, 0, 0, 0, 0, 0, maskE01__};
+  __v8su maskVE42__ = {0, 0, 0, 0, 0, 0, 0, maskE02__};
+  __v8su maskVE43_1 = {0, 0, 0, 0, 0, 0, 0, maskE03_1};
+  __v8su maskVE43_2 = {maskE03_2, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE44__ = {maskE04__, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE45__ = {maskE05__, 0, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE46__ = {maskE06_1, maskE06_2, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE47__ = {0, maskE07__, 0, 0, 0, 0, 0, 0};
+  __v8su maskVE48__ = {0, maskE08__, 0, 0, 0, 0, 0, 0};
+
+  __v8su maskVE49__ = {0, 0, maskE01__, 0, 0, 0, 0, 0};
+  __v8su maskVE50__ = {0, 0, maskE02__, 0, 0, 0, 0, 0};
+  __v8su maskVE51__ = {0, 0, maskE03_1, maskE03_2, 0, 0, 0, 0};
+  __v8su maskVE52__ = {0, 0, 0, maskE04__, 0, 0, 0, 0};
+  __v8su maskVE53__ = {0, 0, 0, maskE05__, 0, 0, 0, 0};
+  __v8su maskVE54__ = {0, 0, 0, maskE06_1, maskE06_2, 0, 0, 0};
+  __v8su maskVE55__ = {0, 0, 0, 0, maskE07__, 0, 0, 0};
+  __v8su maskVE56__ = {0, 0, 0, 0, maskE08__, 0, 0, 0};
+
+  __v8su maskVE57__ = {0, 0, 0, 0, 0, maskE01__, 0, 0};
+  __v8su maskVE58__ = {0, 0, 0, 0, 0, maskE02__, 0, 0};
+  __v8su maskVE59__ = {0, 0, 0, 0, 0, maskE03_1, maskE03_2, 0};
+  __v8su maskVE60__ = {0, 0, 0, 0, 0, 0, maskE04__, 0};
+  __v8su maskVE61__ = {0, 0, 0, 0, 0, 0, maskE05__, 0};
+  __v8su maskVE62__ = {0, 0, 0, 0, 0, 0, maskE06_1, maskE06_2};
+  __v8su maskVE63__ = {0, 0, 0, 0, 0, 0, 0, maskE07__};
+  __v8su maskVE64__ = {0, 0, 0, 0, 0, 0, 0, maskE08__};
+#endif
+
+  // Initialize vector to accumulate the sum
+  __m256i sum_vec = _mm256_setzero_si256();
+
+  __v8su mask_sum_B1_V01 = {maskE01__, 0, 0, maskE01__, 0, 0, maskE01__, 0};
+  __v8su mask_sum_B2_V01 = {0, maskE01__, 0, 0, maskE01__, 0, 0, maskE01__};
+  __v8su mask_sum_B3_V01 = {0, 0, maskE01__, 0, 0, maskE01__, 0, 0};
+
+  __v8su mask_sum_B1_V02 = {maskE02__, 0, 0, maskE02__, 0, 0, maskE02__, 0};
+  __v8su mask_sum_B2_V02 = {0, maskE02__, 0, 0, maskE02__, 0, 0, maskE02__};
+  __v8su mask_sum_B3_V02 = {0, 0, maskE02__, 0, 0, maskE02__, 0, 0};
+
+  __v8su mask_sum_B1_V03_1 = {maskE03_1, 0, 0, maskE03_1, 0, 0, maskE03_1, 0};
+  __v8su mask_sum_B2_V03_1 = {0, maskE03_1, 0, 0, maskE03_1, 0, 0, maskE03_1};
+  __v8su mask_sum_B3_V03_1 = {0, 0, maskE03_1, 0, 0, maskE03_1, 0, 0};
+
+  __v8su mask_sum_B1_V03_2 = {0, maskE03_2, 0, 0, maskE03_2, 0, 0, maskE03_2};
+  __v8su mask_sum_B2_V03_2 = {0, 0, maskE03_2, 0, 0, maskE03_2, 0, 0};
+  __v8su mask_sum_B3_V03_2 = {maskE03_2, 0, 0, maskE03_2, 0, 0, maskE03_2, 0};
+
+  __v8su mask_sum_B1_V04 = {0, maskE04__, 0, 0, maskE04__, 0, 0, maskE04__};
+  __v8su mask_sum_B2_V04 = {0, 0, maskE04__, 0, 0, maskE04__, 0, 0};
+  __v8su mask_sum_B3_V04 = {maskE04__, 0, 0, maskE04__, 0, 0, maskE04__, 0};
+
+  __v8su mask_sum_B1_V05 = {0, maskE05__, 0, 0, maskE05__, 0, 0, maskE05__};
+  __v8su mask_sum_B2_V05 = {0, 0, maskE05__, 0, 0, maskE05__, 0, 0};
+  __v8su mask_sum_B3_V05 = {maskE05__, 0, 0, maskE05__, 0, 0, maskE05__, 0};
+
+  __v8su mask_sum_B1_V06_1 = {0, maskE06_1, 0, 0, maskE06_1, 0, 0, maskE06_1};
+  __v8su mask_sum_B2_V06_1 = {0, 0, maskE06_1, 0, 0, maskE06_1, 0, 0};
+  __v8su mask_sum_B3_V06_1 = {maskE06_1, 0, 0, maskE06_1, 0, 0, maskE06_1, 0};
+
+  __v8su mask_sum_B1_V06_2 = {0, 0, maskE06_2, 0, 0, maskE06_2, 0, 0};
+  __v8su mask_sum_B2_V06_2 = {maskE06_2, 0, 0, maskE06_2, 0, 0, maskE06_2, 0};
+  __v8su mask_sum_B3_V06_2 = {0, maskE06_2, 0, 0, maskE06_2, 0, 0, maskE06_2};
+
+  __v8su mask_sum_B1_V07 = {0, 0, maskE07__, 0, 0, maskE07__, 0, 0};
+  __v8su mask_sum_B2_V07 = {maskE07__, 0, 0, maskE07__, 0, 0, maskE07__, 0};
+  __v8su mask_sum_B3_V07 = {0, maskE07__, 0, 0, maskE07__, 0, 0, maskE07__};
+
+  __v8su mask_sum_B1_V08 = {0, 0, maskE08__, 0, 0, maskE08__, 0, 0};
+  __v8su mask_sum_B2_V08 = {maskE08__, 0, 0, maskE08__, 0, 0, maskE08__, 0};
+  __v8su mask_sum_B3_V08 = {0, maskE08__, 0, 0, maskE08__, 0, 0, maskE08__};
+
+  for (size_t j = 0; j < NUM_OF_SCANS; j++) {
+    size_t i = 0;
+    for (; i < sz_tmp; i += 96) { // Step by 3 bytes per packed12_t
+
+      // Load 32-bit data from arr_tmp. We load 4 bytes at a time, since we're
+      // using 32-bit registers.
+      __m256i data_W1 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i));
+      __m256i data_W2 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i + 32));
+      __m256i data_W3 =
+          _mm256_load_si256(reinterpret_cast<__m256i *>(arr_tmp + i + 64));
+
+      __m256i masked_val_V01 = _mm256_or_si256(
+          _mm256_or_si256(_mm256_and_si256((__m256i)mask_sum_B1_V01, data_W1),
+                          _mm256_and_si256((__m256i)mask_sum_B2_V01, data_W2)),
+          _mm256_and_si256((__m256i)mask_sum_B3_V01, data_W3));
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V02 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V02, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V02, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V02, data_W3)),
+          12);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V03_1 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V03_1, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V03_1, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V03_1, data_W3)),
+          24);
+      __m256i masked_val_V03_2 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V03_2, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V03_2, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V03_2, data_W3)),
+          8);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V04 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V04, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V04, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V04, data_W3)),
+          4);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V05 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V05, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V05, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V05, data_W3)),
+          16);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V06_1 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V06_1, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V06_1, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V06_1, data_W3)),
+          28);
+      __m256i masked_val_V06_2 = _mm256_slli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V06_2, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V06_2, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V06_2, data_W3)),
+          4);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V07 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V07, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V07, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V07, data_W3)),
+          8);
+
+      // Shift the upper bits by 12 (to position them correctly)
+      __m256i masked_val_V08 = _mm256_srli_epi64(
+          _mm256_or_si256(
+              _mm256_or_si256(
+                  _mm256_and_si256((__m256i)mask_sum_B1_V08, data_W1),
+                  _mm256_and_si256((__m256i)mask_sum_B2_V08, data_W2)),
+              _mm256_and_si256((__m256i)mask_sum_B3_V08, data_W3)),
+          20);
+
+      // Accumulate the results into sum_vec
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V01);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V02);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V03_1);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V03_2);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V04);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V05);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V06_1);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V06_2);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V07);
+      sum_vec = _mm256_add_epi32(sum_vec, masked_val_V08);
+    }
+    // assert(i == sz_tmp);
+  }
+
+  // Perform a horizontal sum to reduce the vector to a scalar
+  uint32_t tmp_sum[8];
+  _mm256_store_si256(reinterpret_cast<__m256i *>(tmp_sum), sum_vec);
+
+  // Sum the elements in tmp_sum to get the final scalar sum
+  for (size_t k = 0; k < 8; k++) {
+    sum += tmp_sum[k];
   }
 
   return sum;
@@ -1773,7 +2343,7 @@ int main() {
       auto stop = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-      printf("Tim12:%lu, sum = %lu\n", duration.count(), sum);
+      printf("1Tm12:%lu, sum = %lu\n", duration.count(), sum);
     }
     {
       assert((SZ & 7llu) == 0);
@@ -1782,7 +2352,7 @@ int main() {
       auto stop = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-      printf("Tim12:%lu, sum = %lu\n", duration.count(), sum);
+      printf("2Tm12:%lu, sum = %lu\n", duration.count(), sum);
     }
     {
       assert((SZ & 7llu) == 0);
@@ -1791,7 +2361,7 @@ int main() {
       auto stop = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-      printf("Tim12:%lu, sum = %lu\n", duration.count(), sum);
+      printf("3Tm12:%lu, sum = %lu\n", duration.count(), sum);
     }
 #if INCORRECT_GPT_SOLUTIONS
     {
@@ -1820,7 +2390,7 @@ int main() {
       auto stop = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-      printf("Tim12:%lu, sum = %lu\n", duration.count(), sum);
+      printf("6Tm12:%lu, sum = %lu\n", duration.count(), sum);
     }
     {
       assert((SZ & 7llu) == 0);
@@ -1829,7 +2399,36 @@ int main() {
       auto stop = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-      printf("Tim12:%lu, sum = %lu\n", duration.count(), sum);
+      printf("7Tm12:%lu, sum = %lu\n", duration.count(), sum);
+    }
+    {
+      assert((SZ & 7llu) == 0);
+      auto start = std::chrono::high_resolution_clock::now();
+      size_t sum = access_speed_test_16_to_12_08(arr_dest, SZ >> 1llu);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("8Tm12:%lu, sum = %lu\n", duration.count(), sum);
+    }
+    {
+      assert((SZ & 7llu) == 0);
+      auto start = std::chrono::high_resolution_clock::now();
+      uint32_t sum =
+          access_speed_test_16_to_12_09_32bitSum(arr_dest, SZ >> 1llu);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("9Tm12:%lu, sum = %u\n", duration.count(), sum);
+    }
+    {
+      assert((SZ & 7llu) == 0);
+      auto start = std::chrono::high_resolution_clock::now();
+      uint32_t sum =
+          access_speed_test_16_to_12_10_32bitSum(arr_dest, SZ >> 1llu);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("10T12:%lu, sum = %u\n", duration.count(), sum);
     }
   }
   return 0;

@@ -14,3 +14,22 @@ cmake -H. -Bbuild \
 	-DCMAKE_BUILD_TYPE=Debug
 
 make -Cbuild -j28
+
+export ASM_OPTS="-mmmx \
+    -O3 \
+    -mavx2 \
+    -mavxvnni\
+    -mfma \
+    -mbmi \
+    -mbmi2 \
+    -mabm \
+    -madx \
+    -mrdrnd \
+    -march=raptorlake \
+    -masm=intel \
+    -m64 \
+    -mtune=intel"
+
+echo $ASM_OPTS
+
+g++ src/tmp.cpp -S tmp.s ${ASM_OPTS}
