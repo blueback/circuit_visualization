@@ -2006,6 +2006,17 @@ access_speed_test_16_to_12_10_32bitSum(packed12_t *array12, const size_t size) {
   return sum;
 }
 
+size_t __attribute__((noinline)) access_speed_test_32bitSum(uint16_t *array16,
+                                                            const size_t size) {
+  uint32_t sum = 0;
+  for (size_t j = 0; j < NUM_OF_SCANS; j++) {
+    for (size_t i = 0; i < size; i++) {
+      sum = (sum + array16[i]);
+    }
+  }
+  return sum;
+}
+
 int main() {
   uint16_t *arr = static_cast<uint16_t *>(malloc(SZ * sizeof(uint16_t)));
   fill(arr);
@@ -2429,6 +2440,14 @@ int main() {
       auto duration =
           std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
       printf("10T12:%lu, sum = %u\n", duration.count(), sum);
+    }
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+      uint32_t sum = access_speed_test_32bitSum(arr, SZ);
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+      printf("Time :%lu, sum = %u\n", duration.count(), sum);
     }
   }
   return 0;
