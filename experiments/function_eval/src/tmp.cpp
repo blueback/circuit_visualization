@@ -36,9 +36,40 @@ void operator delete(void *ptr) throw();
 void *operator new[](std::size_t size);
 void operator delete[](void *ptr) throw();
 
-class TRY_PACKED Edge {
+TRY_INLINE void *aligned_malloc(size_t size, size_t alignment) {
+  void *ptr = NULL;
+  if (posix_memalign(&ptr, alignment, size) != 0) {
+    return NULL; // Allocation failed
+  }
+  return ptr;
+}
+
+TRY_INLINE void *aligned_malloc_multiple(size_t size, size_t alignment) {
+  assert(size == ((size + alignment - 1) / alignment * alignment));
+  return aligned_alloc(alignment,
+                       (size + alignment - 1) / alignment * alignment);
+}
+
+#define LAYERS (1llu << 15)
+#define NODES_PER_LAYER (1llu << 7)
+#define EDGES_PER_LAYER (NODES_PER_LAYER * NODES_PER_LAYER)
+#define SZ_NODE_ARR (LAYERS * NODES_PER_LAYER)
+#define SZ_EDGE_ARR ((LAYERS - 1) * EDGES_PER_LAYER * 2)
+
+#define INPUT_EDGES_PER_LAYER (EDGES_PER_LAYER)
+#define INPUT_EDGES ((LAYERS - 1) * INPUT_EDGES_PER_LAYER)
+
+#define OUTPUT_EDGES_PER_LAYER (EDGES_PER_LAYER)
+#define OUTPUT_EDGES ((LAYERS - 1) * OUTPUT_EDGES_PER_LAYER)
+#define TOTAL_MEMORY_LIMIT (25.0)
+#define NUM_OF_SCANS 10
+
+////////////////////////////////////////////////////////////////////////////
+///                                                                      ///
+////////////////////////////////////////////////////////////////////////////
+class TRY_PACKED Edge01 {
 public:
-  TRY_NOMAGIC(Edge)
+  TRY_NOMAGIC(Edge01)
 
 private:
   union TRY_PACKED {
@@ -78,9 +109,9 @@ public:
   }
 };
 
-class TRY_PACKED Node {
+class TRY_PACKED Node01 {
 public:
-  TRY_NOMAGIC(Node)
+  TRY_NOMAGIC(Node01)
 
 private:
   union TRY_PACKED {
@@ -139,43 +170,15 @@ public:
   TRY_INLINE uint64_t getCurrentValue(void) const { return u.s.current_value; }
 };
 
-static_assert(sizeof(Edge) == 6);
-static_assert(sizeof(Node) == 13);
+static_assert(sizeof(Edge01) == 6);
+static_assert(sizeof(Node01) == 13);
 
-TRY_INLINE void *aligned_malloc(size_t size, size_t alignment) {
-  void *ptr = NULL;
-  if (posix_memalign(&ptr, alignment, size) != 0) {
-    return NULL; // Allocation failed
-  }
-  return ptr;
-}
+Node01 *node01_arr = nullptr;
+Edge01 *edge01_arr = nullptr;
 
-TRY_INLINE void *aligned_malloc_multiple(size_t size, size_t alignment) {
-  assert(size == ((size + alignment - 1) / alignment * alignment));
-  return aligned_alloc(alignment,
-                       (size + alignment - 1) / alignment * alignment);
-}
-
-#define LAYERS (1llu << 15)
-#define NODES_PER_LAYER (1llu << 7)
-#define EDGES_PER_LAYER (NODES_PER_LAYER * NODES_PER_LAYER)
-#define SZ_NODE_ARR (LAYERS * NODES_PER_LAYER)
-#define SZ_EDGE_ARR ((LAYERS - 1) * EDGES_PER_LAYER * 2)
-
-#define INPUT_EDGES_PER_LAYER (EDGES_PER_LAYER)
-#define INPUT_EDGES ((LAYERS - 1) * INPUT_EDGES_PER_LAYER)
-
-#define OUTPUT_EDGES_PER_LAYER (EDGES_PER_LAYER)
-#define OUTPUT_EDGES ((LAYERS - 1) * OUTPUT_EDGES_PER_LAYER)
-#define TOTAL_MEMORY_LIMIT (25.0)
-#define NUM_OF_SCANS 10
-
-Node *node_arr = nullptr;
-Edge *edge_arr = nullptr;
-
-TRY_NOINLINE void allocate_arrays(void) {
-  const size_t node_arr_sz = SZ_NODE_ARR * sizeof(Node);
-  const size_t edge_arr_sz = SZ_EDGE_ARR * sizeof(Edge);
+TRY_NOINLINE void allocate_arrays01(void) {
+  const size_t node_arr_sz = SZ_NODE_ARR * sizeof(Node01);
+  const size_t edge_arr_sz = SZ_EDGE_ARR * sizeof(Edge01);
   const size_t total_sz = node_arr_sz + edge_arr_sz;
   const float total_sz_float = 1.0 * total_sz;
   const float total_sz_in_gb = total_sz_float / (1llu << 30);
@@ -188,73 +191,73 @@ TRY_NOINLINE void allocate_arrays(void) {
     exit(1);
     return;
   }
-  node_arr = static_cast<Node *>(aligned_malloc_multiple(node_arr_sz, 32));
-  edge_arr = static_cast<Edge *>(aligned_malloc_multiple(edge_arr_sz, 32));
+  node01_arr = static_cast<Node01 *>(aligned_malloc_multiple(node_arr_sz, 32));
+  edge01_arr = static_cast<Edge01 *>(aligned_malloc_multiple(edge_arr_sz, 32));
 }
 
-TRY_NOINLINE void fill_arrays(void) {
+TRY_NOINLINE void fill_arrays01(void) {
   for (size_t l = 0; l < LAYERS; l++) {
     for (size_t n = 0; n < NODES_PER_LAYER; n++) {
       const size_t node_index = l * NODES_PER_LAYER + n;
-      node_arr[node_index].setCurrentValue(0);
+      node01_arr[node_index].setCurrentValue(0);
       if (l > 0) {
         const size_t root_input_edge_index = node_index * NODES_PER_LAYER;
 
-        node_arr[node_index].setInputCount(NODES_PER_LAYER);
-        node_arr[node_index].setInputEdgeIndex(root_input_edge_index);
+        node01_arr[node_index].setInputCount(NODES_PER_LAYER);
+        node01_arr[node_index].setInputEdgeIndex(root_input_edge_index);
 
         for (size_t i = 0; i < NODES_PER_LAYER; i++) {
           const size_t input_edge_index = root_input_edge_index + i;
           const size_t second_node_index = (l - 1) * NODES_PER_LAYER + i;
-          edge_arr[input_edge_index].setSecondNodeIndex(second_node_index);
-          edge_arr[input_edge_index].setLeftEdgeIndexOffset(0);
-          edge_arr[input_edge_index].setRightEdgeIndexOffset(0);
+          edge01_arr[input_edge_index].setSecondNodeIndex(second_node_index);
+          edge01_arr[input_edge_index].setLeftEdgeIndexOffset(0);
+          edge01_arr[input_edge_index].setRightEdgeIndexOffset(0);
         }
       } else {
-        node_arr[node_index].setInputCount(0);
-        node_arr[node_index].setInputEdgeIndex(0);
+        node01_arr[node_index].setInputCount(0);
+        node01_arr[node_index].setInputEdgeIndex(0);
       }
       if (l < LAYERS - 1) {
         const size_t root_output_edge_index =
             INPUT_EDGES + node_index * NODES_PER_LAYER;
 
-        node_arr[node_index].setOutputCount(NODES_PER_LAYER);
-        node_arr[node_index].setOutputEdgeIndex(root_output_edge_index);
+        node01_arr[node_index].setOutputCount(NODES_PER_LAYER);
+        node01_arr[node_index].setOutputEdgeIndex(root_output_edge_index);
 
         for (size_t i = 0; i < NODES_PER_LAYER; i++) {
           const size_t input_edge_index = root_output_edge_index + i;
           const size_t second_node_index = (l + 1) * NODES_PER_LAYER + i;
-          edge_arr[input_edge_index].setSecondNodeIndex(second_node_index);
-          edge_arr[input_edge_index].setLeftEdgeIndexOffset(0);
-          edge_arr[input_edge_index].setRightEdgeIndexOffset(0);
+          edge01_arr[input_edge_index].setSecondNodeIndex(second_node_index);
+          edge01_arr[input_edge_index].setLeftEdgeIndexOffset(0);
+          edge01_arr[input_edge_index].setRightEdgeIndexOffset(0);
         }
       } else {
-        node_arr[node_index].setOutputCount(0);
-        node_arr[node_index].setOutputEdgeIndex(0);
+        node01_arr[node_index].setOutputCount(0);
+        node01_arr[node_index].setOutputEdgeIndex(0);
       }
     }
   }
 }
 
 TRY_INLINE void eval_node_01(const size_t n) {
-  const size_t input_count = node_arr[n].getInputCount();
-  const size_t input_edge_index = node_arr[n].getInputEdgeIndex();
+  const size_t input_count = node01_arr[n].getInputCount();
+  const size_t input_edge_index = node01_arr[n].getInputEdgeIndex();
   size_t input_val(0);
   for (size_t i = 0; i < input_count; i++) {
     const size_t second_node_index =
-        edge_arr[input_edge_index + i].getSecondNodeIndex();
-    const size_t val = node_arr[second_node_index].getCurrentValue();
+        edge01_arr[input_edge_index + i].getSecondNodeIndex();
+    const size_t val = node01_arr[second_node_index].getCurrentValue();
     assert(val == 1 || val == 0);
     input_val = input_val | (val << i);
   }
-  const size_t lut_function = node_arr[n].getLutFunction();
+  const size_t lut_function = node01_arr[n].getLutFunction();
   const size_t new_val = lut_function | (1llu << input_val);
-  node_arr[n].setCurrentValue(new_val ? 1 : 0);
+  node01_arr[n].setCurrentValue(new_val ? 1 : 0);
 }
 
 TRY_NOINLINE void execute_01(uint64_t iter) {
   for (size_t n = 0; n < NODES_PER_LAYER; n++) {
-    node_arr[n].setCurrentValue((iter + n) % 2);
+    node01_arr[n].setCurrentValue((iter + n) % 2);
   }
 
   for (size_t l = 0; l < LAYERS; l++) {
@@ -264,12 +267,15 @@ TRY_NOINLINE void execute_01(uint64_t iter) {
     }
   }
 }
+////////////////////////////////////////////////////////////////////////////
+///                                                                      ///
+////////////////////////////////////////////////////////////////////////////
 
 int main() {
   {
     auto start = std::chrono::high_resolution_clock::now();
-    allocate_arrays();
-    fill_arrays();
+    allocate_arrays01();
+    fill_arrays01();
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration =
         std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
