@@ -102,6 +102,7 @@ public:
     assert(offset < UINT8_MAX);
     u.s.right_edge_index_offset = offset;
   }
+
   TRY_INLINE uint64_t getSecondNodeIndex(void) const {
     return u.s.second_node_index;
   }
@@ -132,18 +133,18 @@ private:
       uint64_t lut_function : 16;
       uint64_t output_count : 8;
       uint64_t output_edge_index : 32;
-      uint64_t current_value : 8;
+      uint64_t output_value : 8;
     } s;
   } u;
 
 public:
-  TRY_INLINE void setInputEdgeIndex(const uint64_t edge_index) {
-    assert(edge_index < UINT32_MAX);
-    u.s.input_edge_index = edge_index;
-  }
   TRY_INLINE void setInputCount(const uint64_t count) {
     assert(count < UINT8_MAX);
     u.s.input_count = count;
+  }
+  TRY_INLINE void setInputEdgeIndex(const uint64_t edge_index) {
+    assert(edge_index < UINT32_MAX);
+    u.s.input_edge_index = edge_index;
   }
 
   TRY_INLINE void setLutFunction(const uint64_t f) {
@@ -151,33 +152,33 @@ public:
     u.s.lut_function = f;
   }
 
-  TRY_INLINE void setOutputEdgeIndex(const uint64_t edge_index) {
-    assert(edge_index < UINT32_MAX);
-    u.s.output_edge_index = edge_index;
-  }
   TRY_INLINE void setOutputCount(const uint64_t count) {
     assert(count < UINT8_MAX);
     u.s.output_count = count;
   }
-
-  TRY_INLINE void setCurrentValue(const uint64_t val) {
-    assert(val < UINT8_MAX);
-    u.s.current_value = val;
+  TRY_INLINE void setOutputEdgeIndex(const uint64_t edge_index) {
+    assert(edge_index < UINT32_MAX);
+    u.s.output_edge_index = edge_index;
   }
 
+  TRY_INLINE void setOutputValue(const uint64_t val) {
+    assert(val < UINT8_MAX);
+    u.s.output_value = val;
+  }
+
+  TRY_INLINE uint64_t getInputCount(void) const { return u.s.input_count; }
   TRY_INLINE uint64_t getInputEdgeIndex(void) const {
     return u.s.input_edge_index;
   }
-  TRY_INLINE uint64_t getInputCount(void) const { return u.s.input_count; }
 
   TRY_INLINE uint64_t getLutFunction(void) const { return u.s.lut_function; }
 
+  TRY_INLINE uint64_t getOutputCount(void) const { return u.s.output_count; }
   TRY_INLINE uint64_t getOutputEdgeIndex(void) const {
     return u.s.output_edge_index;
   }
-  TRY_INLINE uint64_t getOutputCount(void) const { return u.s.output_count; }
 
-  TRY_INLINE uint64_t getCurrentValue(void) const { return u.s.current_value; }
+  TRY_INLINE uint64_t getOutputValue(void) const { return u.s.output_value; }
 };
 
 static_assert(sizeof(Edge01) == 7);
@@ -216,7 +217,9 @@ TRY_NOINLINE void fill_arrays01(void) {
   for (size_t l = 0; l < LAYERS; l++) {
     for (size_t n = 0; n < NODES_PER_LAYER; n++) {
       const size_t node_index = l * NODES_PER_LAYER + n;
-      node01_arr[node_index].setCurrentValue(0);
+      node01_arr[node_index].setOutputValue(0);
+      node01_arr[node_index].setLutFunction(n % (1llu << 16));
+
       if (l > 0) {
         const size_t root_input_edge_index = node_index * NODES_PER_LAYER;
 
@@ -227,6 +230,7 @@ TRY_NOINLINE void fill_arrays01(void) {
           const size_t input_edge_index = root_input_edge_index + i;
           const size_t second_node_index = (l - 1) * NODES_PER_LAYER + i;
           edge01_arr[input_edge_index].setSecondNodeIndex(second_node_index);
+          edge01_arr[input_edge_index].setNodeConnectionPosition(0);
           edge01_arr[input_edge_index].setLeftEdgeIndexOffset(0);
           edge01_arr[input_edge_index].setRightEdgeIndexOffset(0);
         }
@@ -234,6 +238,7 @@ TRY_NOINLINE void fill_arrays01(void) {
         node01_arr[node_index].setInputCount(0);
         node01_arr[node_index].setInputEdgeIndex(0);
       }
+
       if (l < LAYERS - 1) {
         const size_t root_output_edge_index =
             INPUT_EDGES + node_index * NODES_PER_LAYER;
@@ -242,11 +247,12 @@ TRY_NOINLINE void fill_arrays01(void) {
         node01_arr[node_index].setOutputEdgeIndex(root_output_edge_index);
 
         for (size_t i = 0; i < NODES_PER_LAYER; i++) {
-          const size_t input_edge_index = root_output_edge_index + i;
+          const size_t output_edge_index = root_output_edge_index + i;
           const size_t second_node_index = (l + 1) * NODES_PER_LAYER + i;
-          edge01_arr[input_edge_index].setSecondNodeIndex(second_node_index);
-          edge01_arr[input_edge_index].setLeftEdgeIndexOffset(0);
-          edge01_arr[input_edge_index].setRightEdgeIndexOffset(0);
+          edge01_arr[output_edge_index].setSecondNodeIndex(second_node_index);
+          edge01_arr[output_edge_index].setNodeConnectionPosition(i);
+          edge01_arr[output_edge_index].setLeftEdgeIndexOffset(0);
+          edge01_arr[output_edge_index].setRightEdgeIndexOffset(0);
         }
       } else {
         node01_arr[node_index].setOutputCount(0);
@@ -257,24 +263,35 @@ TRY_NOINLINE void fill_arrays01(void) {
 }
 
 TRY_INLINE void eval_node_01(const size_t n) {
+  size_t input_val(0);
+
   const size_t input_count = node01_arr[n].getInputCount();
   const size_t input_edge_index = node01_arr[n].getInputEdgeIndex();
-  size_t input_val(0);
   for (size_t i = 0; i < input_count; i++) {
     const size_t second_node_index =
         edge01_arr[input_edge_index + i].getSecondNodeIndex();
-    const size_t val = node01_arr[second_node_index].getCurrentValue();
-    assert(val == 1 || val == 0);
-    input_val = input_val | (val << i);
+    const size_t connection_pos =
+        edge01_arr[input_edge_index + i].getNodeConnectionPosition();
+
+    const size_t output_val = node01_arr[second_node_index].getOutputValue();
+
+    const size_t out_val = (output_val & (1llu << connection_pos));
+
+    if (out_val == 0) {
+      input_val = input_val & ~(1llu << i);
+    } else {
+      input_val = input_val | (1llu << i);
+    }
   }
+
   const size_t lut_function = node01_arr[n].getLutFunction();
-  const size_t new_val = lut_function | (1llu << input_val);
-  node01_arr[n].setCurrentValue(new_val ? 1 : 0);
+  const size_t compute_val = lut_function | (1llu << input_val);
+  node01_arr[n].setOutputValue(compute_val ? 1 : 0);
 }
 
-TRY_NOINLINE void execute_01(uint64_t iter) {
+TRY_NOINLINE void execute_01(uint64_t iter, uint8_t *output) {
   for (size_t n = 0; n < NODES_PER_LAYER; n++) {
-    node01_arr[n].setCurrentValue((iter + n) % 2);
+    node01_arr[n].setOutputValue((iter + n) % 2);
   }
 
   for (size_t l = 1; l < LAYERS; l++) {
@@ -282,6 +299,11 @@ TRY_NOINLINE void execute_01(uint64_t iter) {
       const size_t node_index = l * NODES_PER_LAYER + n;
       eval_node_01(node_index);
     }
+  }
+
+  for (size_t n = 0; n < NODES_PER_LAYER; n++) {
+    const size_t node_index = (LAYERS - 1) * NODES_PER_LAYER + n;
+    output[n] = node01_arr[node_index].getOutputValue();
   }
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -496,6 +518,7 @@ TRY_INLINE void eval_node_02(const size_t n) {
         edge02_arr[output_edge_index + i].getNodeConnectionPosition();
 
     const size_t in_val = node02_arr[second_node_index].getInputValue();
+
     if (compute_val == 0) {
       const size_t new_in_val = in_val & ~(1llu << connection_pos);
       node02_arr[second_node_index].setInputValue(new_in_val);
@@ -506,15 +529,45 @@ TRY_INLINE void eval_node_02(const size_t n) {
   }
 }
 
-TRY_NOINLINE void execute_02(uint64_t iter) {
+TRY_NOINLINE void execute_02(uint64_t iter, uint8_t *output) {
   for (size_t n = 0; n < NODES_PER_LAYER; n++) {
-    node02_arr[n].setInputValue((iter + n) % 2);
+    const size_t compute_val = (iter + n) % 2;
+    const size_t output_count = node02_arr[n].getOutputCount();
+    const size_t output_edge_index = node02_arr[n].getOutputEdgeIndex();
+    for (size_t i = 0; i < output_count; i++) {
+      const size_t second_node_index =
+          edge02_arr[output_edge_index + i].getSecondNodeIndex();
+      const size_t connection_pos =
+          edge02_arr[output_edge_index + i].getNodeConnectionPosition();
+
+      const size_t in_val = node02_arr[second_node_index].getInputValue();
+
+      if (compute_val == 0) {
+        const size_t new_in_val = in_val & ~(1llu << connection_pos);
+        node02_arr[second_node_index].setInputValue(new_in_val);
+      } else {
+        const size_t new_in_val = in_val | (1llu << connection_pos);
+        node02_arr[second_node_index].setInputValue(new_in_val);
+      }
+    }
   }
 
-  for (size_t l = 0; l < LAYERS - 1; l++) {
+  for (size_t l = 1; l < LAYERS - 1; l++) {
     for (size_t n = 0; n < NODES_PER_LAYER; n++) {
       const size_t node_index = l * NODES_PER_LAYER + n;
       eval_node_02(node_index);
+    }
+  }
+
+  for (size_t n = 0; n < NODES_PER_LAYER; n++) {
+    const size_t node_index = (LAYERS - 1) * NODES_PER_LAYER + n;
+    const size_t input_val = node02_arr[node_index].getInputValue();
+    const size_t lut_function = node02_arr[node_index].getLutFunction();
+    const size_t compute_val = lut_function | (1llu << input_val);
+    if (compute_val == 0) {
+      output[n] = 0;
+    } else {
+      output[n] = 1;
     }
   }
 }
@@ -523,6 +576,10 @@ TRY_NOINLINE void execute_02(uint64_t iter) {
 ////////////////////////////////////////////////////////////////////////////
 
 int main() {
+  uint8_t *output01 =
+      static_cast<uint8_t *>(aligned_malloc(NODES_PER_LAYER, 32));
+  uint8_t *output02 =
+      static_cast<uint8_t *>(aligned_malloc(NODES_PER_LAYER, 32));
   {
     auto start = std::chrono::high_resolution_clock::now();
     allocate_arrays01();
@@ -535,7 +592,7 @@ int main() {
   {
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < NUM_OF_SCANS; i++) {
-      execute_01(i);
+      execute_01(i, output01);
     }
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration =
@@ -555,13 +612,18 @@ int main() {
   {
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < NUM_OF_SCANS; i++) {
-      execute_02(i);
+      execute_02(i, output02);
     }
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration =
         std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     printf("Time Execute : %lu\n", duration.count());
     free_arrays02();
+  }
+  for (size_t i = 0; i < NODES_PER_LAYER; i++) {
+    // printf("output01[%lu] = %u, output02[%lu] = %u\n", i, output01[i], i,
+    //        output02[i]);
+    assert(output01[i] == output02[i]);
   }
   return 0;
 }
