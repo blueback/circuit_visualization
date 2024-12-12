@@ -148,7 +148,7 @@ public:
   }
 
   TRY_INLINE void setLutFunction(const uint64_t f) {
-    assert(f < UINT16_MAX);
+    assert(f <= UINT16_MAX);
     u.s.lut_function = f;
   }
 
@@ -218,7 +218,7 @@ TRY_NOINLINE void fill_arrays01(void) {
     for (size_t n = 0; n < NODES_PER_LAYER; n++) {
       const size_t node_index = l * NODES_PER_LAYER + n;
       node01_arr[node_index].setOutputValue(0);
-      node01_arr[node_index].setLutFunction(n % (1llu << 16));
+      node01_arr[node_index].setLutFunction(node_index % (1llu << 16));
 
       if (l > 0) {
         const size_t root_input_edge_index = node_index * NODES_PER_LAYER;
@@ -390,7 +390,7 @@ public:
   }
 
   TRY_INLINE void setLutFunction(const uint64_t f) {
-    assert(f < UINT16_MAX);
+    assert(f <= UINT16_MAX);
     u.s.lut_function = f;
   }
 
@@ -460,7 +460,7 @@ TRY_NOINLINE void fill_arrays02(void) {
     for (size_t n = 0; n < NODES_PER_LAYER; n++) {
       const size_t node_index = l * NODES_PER_LAYER + n;
       node02_arr[node_index].setInputValue(0);
-      node02_arr[node_index].setLutFunction(n % (1llu << 16));
+      node02_arr[node_index].setLutFunction(node_index % (1llu << 16));
 
       if (l > 0) {
         const size_t root_input_edge_index = node_index * NODES_PER_LAYER;
