@@ -285,7 +285,10 @@ TRY_INLINE void eval_node_01(const size_t n) {
   }
 
   const size_t lut_function = node01_arr[n].getLutFunction();
-  const size_t compute_val = lut_function | (1llu << input_val);
+  const size_t compute_val = lut_function & (1llu << input_val);
+  // printf("EVAL01: lut:%lx, in_val:%lx, out_val:%lx\n", lut_function,
+  // input_val,
+  //        compute_val);
   node01_arr[n].setOutputValue(compute_val ? 1 : 0);
 }
 
@@ -507,7 +510,10 @@ TRY_NOINLINE void fill_arrays02(void) {
 TRY_INLINE void eval_node_02(const size_t n) {
   const size_t input_val = node02_arr[n].getInputValue();
   const size_t lut_function = node02_arr[n].getLutFunction();
-  const size_t compute_val = lut_function | (1llu << input_val);
+  const size_t compute_val = lut_function & (1llu << input_val);
+  // printf("EVAL02: lut:%lx, in_val:%lx, out_val:%lx\n", lut_function,
+  // input_val,
+  //        compute_val);
 
   const size_t output_count = node02_arr[n].getOutputCount();
   const size_t output_edge_index = node02_arr[n].getOutputEdgeIndex();
