@@ -8,6 +8,7 @@ set(SRC_ROOT_INCLUDE_DIR
 ##################################################
 # Subdirectories for src
 #
+add_subdirectory(standard_defs)
 add_subdirectory(circuit_model)
 add_subdirectory(circuit_animator)
 add_subdirectory(circuit_solver)
