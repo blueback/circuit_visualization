@@ -21,9 +21,16 @@ public:
       const TYPE_FIRST_ENTRY_NODE_INDEX first_entry_node_index,
       const TYPE_EXIT_NODE_COUNT exit_node_count,
       const TYPE_FIRST_EXIT_NODE_INDEX first_exit_node_index) {
+    assert(entry_node_count < (1llu << 16));
     _entry_node_count = entry_node_count;
+
+    assert(first_entry_node_index < (1llu << 32));
     _first_entry_node_index = first_entry_node_index;
+
+    assert(exit_node_count < (1llu << 16));
     _exit_node_count = exit_node_count;
+
+    assert(first_exit_node_index < (1llu << 32));
     _first_exit_node_index = first_exit_node_index;
   };
 };
@@ -52,11 +59,22 @@ public:
       const TYPE_FIRST_ENTRY_EDGE_REVERSE_INDEX first_entry_edge_reverse_index,
       const TYPE_EXIT_EDGE_REVERSE_INDEX exit_edge_reverse_index,
       const TYPE_CLUSTER_INDEX cluster_index) {
+    assert(entry_edge_front_count < (1llu << 16));
     _entry_edge_front_count = entry_edge_front_count;
+
+    assert(first_entry_edge_front_index < (1llu << 32));
     _first_entry_edge_front_index = first_entry_edge_front_index;
+
+    assert(entry_edge_reverse_count < (1llu << 16));
     _entry_edge_reverse_count = entry_edge_reverse_count;
+
+    assert(first_entry_edge_reverse_index < (1llu << 32));
     _first_entry_edge_reverse_index = first_entry_edge_reverse_index;
+
+    assert(exit_edge_reverse_index < (1llu << 32));
     _exit_edge_reverse_index = exit_edge_reverse_index;
+
+    assert(cluster_index < (1llu << 32));
     _cluster_index = cluster_index;
   };
 };
@@ -86,11 +104,22 @@ public:
       const TYPE_FIRST_EXIT_EDGE_FRONT_INDEX first_exit_edge_front_index,
       const TYPE_EXIT_EDGE_REVERSE_INDEX exit_edge_reverse_index,
       const TYPE_CLUSTER_INDEX cluster_index) {
+    assert(entry_edge_front_count < (1llu << 16));
     _entry_edge_front_count = entry_edge_front_count;
+
+    assert(first_entry_edge_front_index < (1llu << 32));
     _first_entry_edge_front_index = first_entry_edge_front_index;
+
+    assert(exit_edge_front_count < (1llu << 16));
     _exit_edge_front_count = exit_edge_front_count;
+
+    assert(first_exit_edge_front_index < (1llu << 32));
     _first_exit_edge_front_index = first_exit_edge_front_index;
+
+    assert(exit_edge_reverse_index < (1llu << 32));
     _exit_edge_reverse_index = exit_edge_reverse_index;
+
+    assert(cluster_index < (1llu << 32));
     _cluster_index = cluster_index;
   };
 };
@@ -105,6 +134,7 @@ public:
 
   TRY_INLINE explicit EntryEdgeFront(
       const TYPE_ENTRY_NODE_INDEX entry_node_index) {
+    assert(entry_node_index < (1llu << 32));
     _entry_node_index = entry_node_index;
   };
 };
@@ -118,6 +148,7 @@ public:
 
   TRY_INLINE explicit EntryEdgeReverse(
       const TYPE_ENTRY_NODE_INDEX entry_node_index) {
+    assert(entry_node_index < (1llu << 32));
     _entry_node_index = entry_node_index;
   };
 };
@@ -131,6 +162,7 @@ public:
 
   TRY_INLINE explicit ExitEdgeFront(
       const TYPE_EXIT_NODE_INDEX exit_node_index) {
+    assert(exit_node_index < (1llu << 32));
     _exit_node_index = exit_node_index;
   };
 };
@@ -144,6 +176,7 @@ public:
 
   TRY_INLINE explicit ExitEdgeReverse(
       const TYPE_EXIT_NODE_INDEX exit_node_index) {
+    assert(exit_node_index < (1llu << 32));
     _exit_node_index = exit_node_index;
   };
 };

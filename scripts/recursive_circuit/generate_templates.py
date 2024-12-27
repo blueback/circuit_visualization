@@ -88,7 +88,10 @@ with open("tmp.cpp", 'w') as f:
         for j in range(len(obj)):
             obj_field = obj[j]
             obj_field_name = obj_field[0]
-            f.write(f"_{obj_field_name} = {obj_field_name};\n")
+            obj_field_bit_count = obj_field[2]
+            assert(int(obj_field_bit_count) <= 32)
+            f.write(f"assert({obj_field_name} < (1llu << {obj_field_bit_count}));\n")
+            f.write(f"_{obj_field_name} = {obj_field_name};\n\n")
         f.write(f"}};\n\n")
         f.write(f"}};\n")
         signature, total_size_in_bytes = genObjTypeSignature(i)
