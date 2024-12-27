@@ -9,10 +9,10 @@ template <typename TYPE_ENTRY_NODE_COUNT, typename TYPE_FIRST_ENTRY_NODE_INDEX,
           typename TYPE_EXIT_NODE_COUNT, typename TYPE_FIRST_EXIT_NODE_INDEX>
 class TRY_PACKED Cluster {
 public:
-  TYPE_ENTRY_NODE_COUNT _entry_node_count;
-  TYPE_FIRST_ENTRY_NODE_INDEX _first_entry_node_index;
-  TYPE_EXIT_NODE_COUNT _exit_node_count;
-  TYPE_FIRST_EXIT_NODE_INDEX _first_exit_node_index;
+  TYPE_ENTRY_NODE_COUNT _entry_node_count : 16;
+  TYPE_FIRST_ENTRY_NODE_INDEX _first_entry_node_index : 32;
+  TYPE_EXIT_NODE_COUNT _exit_node_count : 16;
+  TYPE_FIRST_EXIT_NODE_INDEX _first_exit_node_index : 32;
 
   TRY_NOMAGIC(Cluster)
 
@@ -36,12 +36,12 @@ template <typename TYPE_ENTRY_EDGE_FRONT_COUNT,
           typename TYPE_EXIT_EDGE_REVERSE_INDEX, typename TYPE_CLUSTER_INDEX>
 class TRY_PACKED EntryNode {
 public:
-  TYPE_ENTRY_EDGE_FRONT_COUNT _entry_edge_front_count;
-  TYPE_FIRST_ENTRY_EDGE_FRONT_INDEX _first_entry_edge_front_index;
-  TYPE_ENTRY_EDGE_REVERSE_COUNT _entry_edge_reverse_count;
-  TYPE_FIRST_ENTRY_EDGE_REVERSE_INDEX _first_entry_edge_reverse_index;
-  TYPE_EXIT_EDGE_REVERSE_INDEX _exit_edge_reverse_index;
-  TYPE_CLUSTER_INDEX _cluster_index;
+  TYPE_ENTRY_EDGE_FRONT_COUNT _entry_edge_front_count : 16;
+  TYPE_FIRST_ENTRY_EDGE_FRONT_INDEX _first_entry_edge_front_index : 32;
+  TYPE_ENTRY_EDGE_REVERSE_COUNT _entry_edge_reverse_count : 16;
+  TYPE_FIRST_ENTRY_EDGE_REVERSE_INDEX _first_entry_edge_reverse_index : 32;
+  TYPE_EXIT_EDGE_REVERSE_INDEX _exit_edge_reverse_index : 32;
+  TYPE_CLUSTER_INDEX _cluster_index : 32;
 
   TRY_NOMAGIC(EntryNode)
 
@@ -70,12 +70,12 @@ template <typename TYPE_ENTRY_EDGE_FRONT_COUNT,
           typename TYPE_EXIT_EDGE_REVERSE_INDEX, typename TYPE_CLUSTER_INDEX>
 class TRY_PACKED ExitNode {
 public:
-  TYPE_ENTRY_EDGE_FRONT_COUNT _entry_edge_front_count;
-  TYPE_FIRST_ENTRY_EDGE_FRONT_INDEX _first_entry_edge_front_index;
-  TYPE_EXIT_EDGE_FRONT_COUNT _exit_edge_front_count;
-  TYPE_FIRST_EXIT_EDGE_FRONT_INDEX _first_exit_edge_front_index;
-  TYPE_EXIT_EDGE_REVERSE_INDEX _exit_edge_reverse_index;
-  TYPE_CLUSTER_INDEX _cluster_index;
+  TYPE_ENTRY_EDGE_FRONT_COUNT _entry_edge_front_count : 16;
+  TYPE_FIRST_ENTRY_EDGE_FRONT_INDEX _first_entry_edge_front_index : 32;
+  TYPE_EXIT_EDGE_FRONT_COUNT _exit_edge_front_count : 16;
+  TYPE_FIRST_EXIT_EDGE_FRONT_INDEX _first_exit_edge_front_index : 32;
+  TYPE_EXIT_EDGE_REVERSE_INDEX _exit_edge_reverse_index : 32;
+  TYPE_CLUSTER_INDEX _cluster_index : 32;
 
   TRY_NOMAGIC(ExitNode)
 
@@ -99,7 +99,7 @@ static_assert(sizeof(ExitNode<uint16_t, uint32_t, uint16_t, uint32_t, uint32_t,
 
 template <typename TYPE_ENTRY_NODE_INDEX> class TRY_PACKED EntryEdgeFront {
 public:
-  TYPE_ENTRY_NODE_INDEX _entry_node_index;
+  TYPE_ENTRY_NODE_INDEX _entry_node_index : 32;
 
   TRY_NOMAGIC(EntryEdgeFront)
 
@@ -112,7 +112,7 @@ static_assert(sizeof(EntryEdgeFront<uint32_t>) == 4);
 
 template <typename TYPE_ENTRY_NODE_INDEX> class TRY_PACKED EntryEdgeReverse {
 public:
-  TYPE_ENTRY_NODE_INDEX _entry_node_index;
+  TYPE_ENTRY_NODE_INDEX _entry_node_index : 32;
 
   TRY_NOMAGIC(EntryEdgeReverse)
 
@@ -125,7 +125,7 @@ static_assert(sizeof(EntryEdgeReverse<uint32_t>) == 4);
 
 template <typename TYPE_EXIT_NODE_INDEX> class TRY_PACKED ExitEdgeFront {
 public:
-  TYPE_EXIT_NODE_INDEX _exit_node_index;
+  TYPE_EXIT_NODE_INDEX _exit_node_index : 32;
 
   TRY_NOMAGIC(ExitEdgeFront)
 
@@ -138,7 +138,7 @@ static_assert(sizeof(ExitEdgeFront<uint32_t>) == 4);
 
 template <typename TYPE_EXIT_NODE_INDEX> class TRY_PACKED ExitEdgeReverse {
 public:
-  TYPE_EXIT_NODE_INDEX _exit_node_index;
+  TYPE_EXIT_NODE_INDEX _exit_node_index : 32;
 
   TRY_NOMAGIC(ExitEdgeReverse)
 

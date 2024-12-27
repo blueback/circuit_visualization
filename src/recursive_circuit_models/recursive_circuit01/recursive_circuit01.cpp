@@ -17,12 +17,40 @@ void allocate_clusters(size_t cluster_count) {
              cluster_count));
 }
 
-void allocate_entry_nodes(size_t entry_nodes_count) {
+void allocate_entry_nodes(size_t entry_node_count) {
   entry_nodes = static_cast<
       EntryNode<uint16_t, uint32_t, uint16_t, uint32_t, uint32_t, uint32_t> *>(
       malloc(sizeof(EntryNode<uint16_t, uint32_t, uint16_t, uint32_t, uint32_t,
                               uint32_t>) *
-             entry_nodes_count));
+             entry_node_count));
+}
+
+void allocate_exit_nodes(size_t exit_node_count) {
+  exit_nodes = static_cast<
+      ExitNode<uint16_t, uint32_t, uint16_t, uint32_t, uint32_t, uint32_t> *>(
+      malloc(sizeof(ExitNode<uint16_t, uint32_t, uint16_t, uint32_t, uint32_t,
+                             uint32_t>) *
+             exit_node_count));
+}
+
+void allocate_entry_edges_front(size_t entry_edge_front_count) {
+  entry_edges_front = static_cast<EntryEdgeFront<uint32_t> *>(
+      malloc(sizeof(EntryEdgeFront<uint32_t>) * entry_edge_front_count));
+}
+
+void allocate_entry_edges_reverse(size_t entry_edge_reverse_count) {
+  entry_edges_reverse = static_cast<EntryEdgeReverse<uint32_t> *>(
+      malloc(sizeof(EntryEdgeReverse<uint32_t>) * entry_edge_reverse_count));
+}
+
+void allocate_exit_edges_front(size_t exit_edge_front_count) {
+  exit_edges_front = static_cast<ExitEdgeFront<uint32_t> *>(
+      malloc(sizeof(ExitEdgeFront<uint32_t>) * exit_edge_front_count));
+}
+
+void allocate_exit_edges_reverse(size_t exit_edge_reverse_count) {
+  exit_edges_reverse = static_cast<ExitEdgeReverse<uint32_t> *>(
+      malloc(sizeof(ExitEdgeReverse<uint32_t>) * exit_edge_reverse_count));
 }
 
 }; // namespace RecursiveCircuit01
