@@ -211,6 +211,207 @@ void CircuitSolver::solve() {
   CloseWindow();
 }
 
+static bool isRectangleInside(Rectangle screen_rect, Rectangle target_rect) {
+  Rectangle coll_rect = GetCollisionRec(screen_rect, target_rect);
+  if (coll_rect.x != target_rect.x) {
+    return false;
+  }
+  if (coll_rect.y != target_rect.y) {
+    return false;
+  }
+  if (coll_rect.width != target_rect.width) {
+    return false;
+  }
+  if (coll_rect.height != target_rect.height) {
+    return false;
+  }
+  return true;
+}
+
+static float getMaximumZoom(Rectangle screen_rect, Rectangle target_rect) {
+  float height_zoom = screen_rect.height / target_rect.height;
+  float width_zoom = screen_rect.width / target_rect.width;
+  if (height_zoom > width_zoom) {
+    return height_zoom;
+  } else {
+    return width_zoom;
+  }
+}
+
+static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
+                                    Rectangle target_rect, float start_time,
+                                    float end_time, float curr_time) {
+  assert(start_time < end_time);
+  curr_time = Clamp(curr_time, start_time, end_time);
+
+  assert(isRectangleInside(screen_rect, target_rect));
+
+  float default_zoom = 1.0f;
+  float final_zoom = getMaximumZoom(screen_rect, target_rect);
+  float offset_ratio = -final_zoom / (final_zoom - 1.0f);
+
+  float curr_zoom_slop = Remap(curr_time, start_time, end_time,
+                               logf(default_zoom), logf(final_zoom));
+
+  float curr_zoom = expf(curr_zoom_slop);
+
+  Vector2 curr_offset = {.x = offset_ratio * (curr_zoom - 1.0f) * target_rect.x,
+                         .y =
+                             offset_ratio * (curr_zoom - 1.0f) * target_rect.y};
+
+  Camera2D curr_camera = {.offset = {.x = curr_offset.x, .y = curr_offset.y},
+                          .target = {.x = 0.0f, .y = 0.0f},
+                          .rotation = 0.0f,
+                          .zoom = curr_zoom};
+
+  return curr_camera;
+}
+
+static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
+                                    Vector2 target_center, float zoom_factor,
+                                    float start_time, float end_time,
+                                    float curr_time) {
+  Rectangle target_rect;
+  target_rect.width = screen_rect.width / zoom_factor;
+  target_rect.height = screen_rect.height / zoom_factor;
+  Vector2 top_left = Vector2Subtract(
+      target_center, {.x = target_rect.width / 2, .y = target_rect.height / 2});
+  target_rect.x = top_left.x;
+  target_rect.y = top_left.y;
+
+  return getCurrCameraZoomTo(screen_rect, target_rect, start_time, end_time,
+                             curr_time);
+}
+
+static Camera2D getCurrCameraZoomFrom(Rectangle screen_rect,
+                                      Rectangle target_rect, float start_time,
+                                      float end_time, float curr_time) {
+  assert(start_time < end_time);
+  curr_time = Clamp(curr_time, start_time, end_time);
+
+  assert(isRectangleInside(screen_rect, target_rect));
+
+  float default_zoom = 1.0f;
+  float initial_zoom = getMaximumZoom(screen_rect, target_rect);
+  float offset_ratio = -initial_zoom / (initial_zoom - 1.0f);
+
+  float curr_zoom_slop = Remap(curr_time, start_time, end_time,
+                               logf(initial_zoom), logf(default_zoom));
+
+  float curr_zoom = expf(curr_zoom_slop);
+
+  Vector2 curr_offset = {.x = offset_ratio * (curr_zoom - 1.0f) * target_rect.x,
+                         .y =
+                             offset_ratio * (curr_zoom - 1.0f) * target_rect.y};
+
+  Camera2D curr_camera = {.offset = {.x = curr_offset.x, .y = curr_offset.y},
+                          .target = {.x = 0.0f, .y = 0.0f},
+                          .rotation = 0.0f,
+                          .zoom = curr_zoom};
+
+  return curr_camera;
+}
+
+static Camera2D getCurrCameraZoomFrom(Rectangle screen_rect,
+                                      Vector2 target_center, float zoom_factor,
+                                      float start_time, float end_time,
+                                      float curr_time) {
+  Rectangle target_rect;
+  target_rect.width = screen_rect.width / zoom_factor;
+  target_rect.height = screen_rect.height / zoom_factor;
+  Vector2 top_left = Vector2Subtract(
+      target_center, {.x = target_rect.width / 2, .y = target_rect.height / 2});
+  target_rect.x = top_left.x;
+  target_rect.y = top_left.y;
+
+  return getCurrCameraZoomFrom(screen_rect, target_rect, start_time, end_time,
+                               curr_time);
+}
+
+#if 0
+void CircuitSolver::solve2() {
+  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "circuit visualization");
+  SetTargetFPS(SCREEN_FPS);
+
+  // float zoom = 0.25f;
+  float zoom = 0.95f;
+  Camera2D camera = {.offset = {.x = SCREEN_WIDTH / 2 * (1.0f - zoom),
+                                .y = SCREEN_HEIGHT / 2 * (1.0f - zoom)},
+                     .target = {.x = 0, .y = 0},
+                     .rotation = 0.0f,
+                     .zoom = zoom};
+
+  Vector2 tmp_target_center = {.x = SCREEN_WIDTH / 5 * 3,
+                               .y = SCREEN_HEIGHT / 6 * 2};
+  Rectangle tmp_target_rect;
+  Vector2 tmp_target_top_left;
+  {
+    static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
+    const float max_node_radius = MAX_NODE_RADIUS_RATIO * SCREEN_HEIGHT;
+    const float max_node_diameter = max_node_radius * 2.0f;
+    const float tmp_target_start_y = max_node_radius;
+    const float tmp_target_start_x =
+        max_node_radius * SCREEN_WIDTH / SCREEN_HEIGHT;
+    tmp_target_top_left = {.x = tmp_target_start_x, .y = tmp_target_start_y};
+    tmp_target_top_left =
+        Vector2Subtract(tmp_target_center, tmp_target_top_left);
+
+    tmp_target_rect.height = max_node_diameter;
+    tmp_target_rect.width = max_node_diameter * SCREEN_WIDTH / SCREEN_HEIGHT;
+    tmp_target_rect.x = tmp_target_top_left.x;
+    tmp_target_rect.y = tmp_target_top_left.y;
+  }
+  float final_zoom = SCREEN_HEIGHT / tmp_target_rect.height;
+  float offset_ratio_denominator =
+      (SCREEN_HEIGHT / tmp_target_rect.height) - 1.0f;
+  float zoom_velocity = 0.01f;
+
+  float curr_frame_time = 0.0f;
+
+  stackCircuitsToAnimate();
+
+  while (!WindowShouldClose()) {
+    curr_frame_time += GetFrameTime();
+    if (IsKeyDown(KEY_SPACE)) {
+      camera.zoom += zoom_velocity * camera.zoom;
+    } else if (IsKeyDown(KEY_LEFT_SHIFT)) {
+      camera.zoom -= zoom_velocity * camera.zoom;
+    }
+
+    // const float camera_offset_ratio = (1 - camera.zoom) / 2;
+    // camera.offset = Vector2Multiply(SCREEN_RESOLUTION,
+    //                                 {camera_offset_ratio,
+    //                                 camera_offset_ratio});
+    //  camera.target = Vector2Subtract(tmp_target, camera.offset);
+    //  camera.target = tmp_target_top_left;
+    //  camera.offset = Vector2Subtract(tmp_target_top_left, camera.offset);
+
+    camera.offset.x = -final_zoom * (camera.zoom - 1.0f) /
+                      offset_ratio_denominator * tmp_target_rect.x;
+    camera.offset.y = -final_zoom * (camera.zoom - 1.0f) /
+                      offset_ratio_denominator * tmp_target_rect.y;
+
+    BeginDrawing();
+    {
+      ClearBackground(DARKGRAY);
+      BeginMode2D(camera);
+      {
+        drawVideoBackground(true);
+        DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
+        DrawRectangleLinesEx(tmp_target_rect, 4.0f, BLACK);
+        bool should_continue = drawCircuits(curr_frame_time);
+        if (!should_continue) {
+          break;
+        }
+      }
+      EndMode2D();
+    }
+    EndDrawing();
+  }
+  CloseWindow();
+}
+#endif
+
 void CircuitSolver::drawVideoBackground(const bool use_mp) {
   // Color apap_color = ColorFromHSV(277, 0.35f, 0.57f);
   // Color mp_color = DARKBLUE;
@@ -229,6 +430,21 @@ void CircuitSolver::render_video() {
 
   float curr_frame_time = 0.0f;
 
+#if 0
+  Vector2 zoom_target_center = {.x = SCREEN_WIDTH / 5 * 3,
+                                .y = SCREEN_HEIGHT / 6 * 2};
+  float zoom_factor = 20.0f;
+  float zoom_in_start_time = 2.0f;
+  float zoom_in_end_time = 10.0f;
+  float zoom_out_start_time = 12.0f;
+  float zoom_out_end_time = 20.0f;
+#endif
+
+  Camera2D camera = {.offset = {.x = 0.0f, .y = 0.0f},
+                     .target = {.x = 0.0f, .y = 0.0f},
+                     .rotation = 0.0f,
+                     .zoom = 1.0f};
+
   stackCircuitsToAnimate();
 
   FFMPEG *ffmpeg = ffmpeg_start_rendering("output.mp4", SCREEN_WIDTH,
@@ -241,16 +457,32 @@ void CircuitSolver::render_video() {
   while (!WindowShouldClose()) {
     curr_frame_time += GetFrameTime();
 
+#if 0
+    if (curr_frame_time < zoom_out_start_time) {
+      camera = getCurrCameraZoomTo(SCREEN_RECT, zoom_target_center, zoom_factor,
+                                   zoom_in_start_time, zoom_in_end_time,
+                                   curr_frame_time);
+    } else {
+      camera = getCurrCameraZoomFrom(SCREEN_RECT, zoom_target_center,
+                                     zoom_factor, zoom_out_start_time,
+                                     zoom_out_end_time, curr_frame_time);
+    }
+#endif
+
     BeginDrawing();
     {
       BeginTextureMode(render_screen);
       {
-        ClearBackground(DARKGRAY);
-        drawVideoBackground(true);
-        bool should_continue = drawCircuits(curr_frame_time);
-        if (!should_continue) {
-          break;
+        BeginMode2D(camera);
+        {
+          ClearBackground(DARKGRAY);
+          drawVideoBackground(true);
+          bool should_continue = drawCircuits(curr_frame_time);
+          if (!should_continue) {
+            break;
+          }
         }
+        EndMode2D();
       }
       EndTextureMode();
 
