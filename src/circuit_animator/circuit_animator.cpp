@@ -269,5 +269,5 @@ void CircuitAnimator::finalizeLayout(void) {
         return IterationContinue;
       });
 
-  _animation_end_time = curr_time + 2;
+  _animation_end_time = curr_time + ANIM_END_DELAY;
 }

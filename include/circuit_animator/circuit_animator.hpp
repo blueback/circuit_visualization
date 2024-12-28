@@ -381,6 +381,7 @@ private:
   static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
   static constexpr float EDGE_WIDTH = 4.0f;
   static constexpr Color EDGE_COLOR = BLACK;
+  static constexpr float ANIM_END_DELAY = 30.0f;
 
   const CircuitModel &_circuit;
   const Vector2 _screen_resolution;
