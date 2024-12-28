@@ -238,6 +238,19 @@ static float getMaximumZoom(Rectangle screen_rect, Rectangle target_rect) {
   }
 }
 
+static Rectangle getZoomTargetRectangle(Rectangle screen_rect,
+                                        Vector2 target_center,
+                                        float zoom_factor) {
+  Rectangle target_rect;
+  target_rect.width = screen_rect.width / zoom_factor;
+  target_rect.height = screen_rect.height / zoom_factor;
+  Vector2 top_left = Vector2Subtract(
+      target_center, {.x = target_rect.width / 2, .y = target_rect.height / 2});
+  target_rect.x = top_left.x;
+  target_rect.y = top_left.y;
+  return target_rect;
+}
+
 static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
                                     Rectangle target_rect, float start_time,
                                     float end_time, float curr_time) {
@@ -271,13 +284,8 @@ static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
                                     Vector2 target_center, float zoom_factor,
                                     float start_time, float end_time,
                                     float curr_time) {
-  Rectangle target_rect;
-  target_rect.width = screen_rect.width / zoom_factor;
-  target_rect.height = screen_rect.height / zoom_factor;
-  Vector2 top_left = Vector2Subtract(
-      target_center, {.x = target_rect.width / 2, .y = target_rect.height / 2});
-  target_rect.x = top_left.x;
-  target_rect.y = top_left.y;
+  Rectangle target_rect =
+      getZoomTargetRectangle(screen_rect, target_center, zoom_factor);
 
   return getCurrCameraZoomTo(screen_rect, target_rect, start_time, end_time,
                              curr_time);
@@ -316,101 +324,12 @@ static Camera2D getCurrCameraZoomFrom(Rectangle screen_rect,
                                       Vector2 target_center, float zoom_factor,
                                       float start_time, float end_time,
                                       float curr_time) {
-  Rectangle target_rect;
-  target_rect.width = screen_rect.width / zoom_factor;
-  target_rect.height = screen_rect.height / zoom_factor;
-  Vector2 top_left = Vector2Subtract(
-      target_center, {.x = target_rect.width / 2, .y = target_rect.height / 2});
-  target_rect.x = top_left.x;
-  target_rect.y = top_left.y;
+  Rectangle target_rect =
+      getZoomTargetRectangle(screen_rect, target_center, zoom_factor);
 
   return getCurrCameraZoomFrom(screen_rect, target_rect, start_time, end_time,
                                curr_time);
 }
-
-#if 0
-void CircuitSolver::solve2() {
-  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "circuit visualization");
-  SetTargetFPS(SCREEN_FPS);
-
-  // float zoom = 0.25f;
-  float zoom = 0.95f;
-  Camera2D camera = {.offset = {.x = SCREEN_WIDTH / 2 * (1.0f - zoom),
-                                .y = SCREEN_HEIGHT / 2 * (1.0f - zoom)},
-                     .target = {.x = 0, .y = 0},
-                     .rotation = 0.0f,
-                     .zoom = zoom};
-
-  Vector2 tmp_target_center = {.x = SCREEN_WIDTH / 5 * 3,
-                               .y = SCREEN_HEIGHT / 6 * 2};
-  Rectangle tmp_target_rect;
-  Vector2 tmp_target_top_left;
-  {
-    static constexpr float MAX_NODE_RADIUS_RATIO = 30.0f / 720;
-    const float max_node_radius = MAX_NODE_RADIUS_RATIO * SCREEN_HEIGHT;
-    const float max_node_diameter = max_node_radius * 2.0f;
-    const float tmp_target_start_y = max_node_radius;
-    const float tmp_target_start_x =
-        max_node_radius * SCREEN_WIDTH / SCREEN_HEIGHT;
-    tmp_target_top_left = {.x = tmp_target_start_x, .y = tmp_target_start_y};
-    tmp_target_top_left =
-        Vector2Subtract(tmp_target_center, tmp_target_top_left);
-
-    tmp_target_rect.height = max_node_diameter;
-    tmp_target_rect.width = max_node_diameter * SCREEN_WIDTH / SCREEN_HEIGHT;
-    tmp_target_rect.x = tmp_target_top_left.x;
-    tmp_target_rect.y = tmp_target_top_left.y;
-  }
-  float final_zoom = SCREEN_HEIGHT / tmp_target_rect.height;
-  float offset_ratio_denominator =
-      (SCREEN_HEIGHT / tmp_target_rect.height) - 1.0f;
-  float zoom_velocity = 0.01f;
-
-  float curr_frame_time = 0.0f;
-
-  stackCircuitsToAnimate();
-
-  while (!WindowShouldClose()) {
-    curr_frame_time += GetFrameTime();
-    if (IsKeyDown(KEY_SPACE)) {
-      camera.zoom += zoom_velocity * camera.zoom;
-    } else if (IsKeyDown(KEY_LEFT_SHIFT)) {
-      camera.zoom -= zoom_velocity * camera.zoom;
-    }
-
-    // const float camera_offset_ratio = (1 - camera.zoom) / 2;
-    // camera.offset = Vector2Multiply(SCREEN_RESOLUTION,
-    //                                 {camera_offset_ratio,
-    //                                 camera_offset_ratio});
-    //  camera.target = Vector2Subtract(tmp_target, camera.offset);
-    //  camera.target = tmp_target_top_left;
-    //  camera.offset = Vector2Subtract(tmp_target_top_left, camera.offset);
-
-    camera.offset.x = -final_zoom * (camera.zoom - 1.0f) /
-                      offset_ratio_denominator * tmp_target_rect.x;
-    camera.offset.y = -final_zoom * (camera.zoom - 1.0f) /
-                      offset_ratio_denominator * tmp_target_rect.y;
-
-    BeginDrawing();
-    {
-      ClearBackground(DARKGRAY);
-      BeginMode2D(camera);
-      {
-        drawVideoBackground(true);
-        DrawRectangleLinesEx(SCREEN_RECT, 3.0f, YELLOW);
-        DrawRectangleLinesEx(tmp_target_rect, 4.0f, BLACK);
-        bool should_continue = drawCircuits(curr_frame_time);
-        if (!should_continue) {
-          break;
-        }
-      }
-      EndMode2D();
-    }
-    EndDrawing();
-  }
-  CloseWindow();
-}
-#endif
 
 void CircuitSolver::drawVideoBackground(const bool use_mp) {
   // Color apap_color = ColorFromHSV(277, 0.35f, 0.57f);
@@ -433,7 +352,9 @@ void CircuitSolver::render_video() {
 #if 0
   Vector2 zoom_target_center = {.x = SCREEN_WIDTH / 5 * 3,
                                 .y = SCREEN_HEIGHT / 6 * 2};
-  float zoom_factor = 20.0f;
+  float zoom_factor = 15.0f;
+  Rectangle zoom_target_rect =
+      getZoomTargetRectangle(SCREEN_RECT, zoom_target_center, zoom_factor);
   float zoom_in_start_time = 2.0f;
   float zoom_in_end_time = 10.0f;
   float zoom_out_start_time = 12.0f;
@@ -477,6 +398,9 @@ void CircuitSolver::render_video() {
         {
           ClearBackground(DARKGRAY);
           drawVideoBackground(true);
+#if 0
+          DrawRectangleLinesEx(zoom_target_rect, 1.0f, ORANGE);
+#endif
           bool should_continue = drawCircuits(curr_frame_time);
           if (!should_continue) {
             break;
