@@ -58,6 +58,10 @@ def genObjTypeSignature(obj_i):
     return signature, total_bytes
 
 with open("tmp.cpp", 'w') as f:
+    f.write(f"#ifndef __RECURSIVE_CIRCUIT02_HPP__\n")
+    f.write(f"#define __RECURSIVE_CIRCUIT02_HPP__\n\n")
+    f.write(f"#include \"standard_defs/standard_defs.hpp\"\n\n")
+    f.write(f"namespace RecursiveCircuit01 {{\n\n")
     for i, i_arr in recursive_circuit:
         obj = globals()[i]
         f.write(f"template<")
@@ -96,10 +100,19 @@ with open("tmp.cpp", 'w') as f:
         f.write(f"}};\n")
         signature, total_size_in_bytes = genObjTypeSignature(i)
         f.write(f"static_assert(sizeof({signature}) == {total_size_in_bytes});\n\n") 
+    f.write(f"}};\n\n")
+    f.write(f"#endif // __RECURSIVE_CIRCUIT02_HPP__\n")
+    f.write("\n\n\n")
 
+    f.write(f"namespace RecursiveCircuit01 {{\n")
+    for i, i_arr in recursive_circuit:
+        signature, total_size_in_bytes = genObjTypeSignature(i)
+        f.write(f"{signature} *{i_arr} = nullptr;\n")
+    f.write("\n")
     for i, i_arr in recursive_circuit:
         signature, total_size_in_bytes = genObjTypeSignature(i)
         f.write(f"void allocate_{i_arr}(size_t {i}_count) {{\n")
         f.write(f"  {i_arr} = static_cast<{signature} *>(")
         f.write(f"malloc(sizeof({signature}) * {i}_count));")
         f.write("}\n\n")
+    f.write(f"}};\n\n")
