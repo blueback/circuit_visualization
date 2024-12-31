@@ -56,6 +56,10 @@ node_info = [
         ('first_exit_edge_reverse_index', 'uint32_t', 32),
         ('cluster_index', 'uint32_t', 32)]
 
+animation_keyframe_info = [
+        ('keyframe_index', 'uint32_t', 32),
+        ('keyframe_type', 'uint8_t', 8)]
+
 cluster = [
         ('entry_node_count', 'uint16_t', 16),
         ('first_entry_node_index', 'uint32_t', 32),
@@ -115,13 +119,33 @@ exit_node_keyframe = [
 
 entry_edge_front = [('entry_node_index', 'uint32_t', 32)]
 entry_edge_reverse = [('entry_node_index', 'uint32_t', 32)]
+
+entry_edge_front_extra1 = [
+        ('edge_keyframe_count', 'uint8_t', 8),
+        ('first_edge_keyframe_index', 'uint32_t', 32)]
+
 exit_edge_front = [('exit_node_index', 'uint32_t', 32)]
 exit_edge_reverse = [('exit_node_index', 'uint32_t', 32)]
+
+exit_edge_front_extra1 = [
+        ('edge_keyframe_count', 'uint8_t', 8),
+        ('first_edge_keyframe_index', 'uint32_t', 32)]
+
+
+edge_keyframe = [
+        ('edge_points_count', 'uint16_t', 16),
+        ('first_edge_point_index', 'uint32_t', 32),
+        ('interval', getObjSign('interval_info'), getObjSizeInBits('interval_info'), False)]
+
+edge_point = [
+        ('point', 'Vector2', 2*4*8, False)]
+
 
 utility_structs = [
         'circle_info',
         'interval_info',
-        'node_info']
+        'node_info',
+        'animation_keyframe_info']
 
 recursive_circuit = [('cluster', 'clusters'),
                      ('cluster_extra1', 'cluster_extra1_arr'),
@@ -138,8 +162,12 @@ recursive_circuit = [('cluster', 'clusters'),
                      ('exit_node_keyframe', 'exit_node_keyframes'),
                      ('entry_edge_front', 'entry_edges_front'),
                      ('entry_edge_reverse', 'entry_edges_reverse'),
+                     ('entry_edge_front_extra1', 'entry_edge_front_extra1_arr'),
                      ('exit_edge_front', 'exit_edges_front'),
-                     ('exit_edge_reverse', 'exit_edges_reverse')]
+                     ('exit_edge_reverse', 'exit_edges_reverse'),
+                     ('exit_edge_front_extra1', 'exit_edge_front_extra1_arr'),
+                     ('edge_keyframe', 'edge_keyframes'),
+                     ('edge_point', 'edge_points')]
 
 def generateClassStruct(i, f):
     obj = globals()[i]
