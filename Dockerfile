@@ -80,6 +80,12 @@ RUN apt-get -y install mesa-vulkan-drivers
 
 # }
 
+# Install Vulkan Packages {
+
+RUN apt-get -y install vulkan-tools
+
+# }
+
 #RUN apt-get -y install gcc g++ cmake
 
 ##################################################################
