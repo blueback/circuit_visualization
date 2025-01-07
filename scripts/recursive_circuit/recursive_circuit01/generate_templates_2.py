@@ -37,6 +37,12 @@ def getObjSizeInBytes(obj_i):
     total_bytes = math.ceil(total_bits / 8.0)
     return total_bytes
 
+keyframe_type = [
+        'CLUSTER',
+        'ENTRY_NODE',
+        'EXIT_NODE',
+        'EDGE']
+
 circle_info = [
         ('center', 'Vector2', 2*4*8, False),
         ('radius', 'float', 4*8, False)]
@@ -141,6 +147,9 @@ edge_point = [
         ('point', 'Vector2', 2*4*8, False)]
 
 
+enum_structs = [
+        'keyframe_type']
+
 utility_structs = [
         'circle_info',
         'interval_info',
@@ -168,6 +177,21 @@ recursive_circuit = [('cluster', 'clusters'),
                      ('exit_edge_front_extra1', 'exit_edge_front_extra1_arr'),
                      ('edge_keyframe', 'edge_keyframes'),
                      ('edge_point', 'edge_points')]
+
+def generateEnumStruct(i, f):
+    obj = globals()[i]
+    f.write(f"enum {convertToPascal(i)} : uint8_t {{\n")
+    f.write(f"FIRST_{i.upper()},")
+    assert len(obj) > 0
+    for j in range(len(obj)):
+        obj_field = obj[j]
+        if j == 0:
+            f.write(f"{obj_field.upper()}_{i.upper()} = FIRST_{i.upper()},")
+        else:
+            f.write(f"{obj_field.upper()}_{i.upper()}, ")
+    f.write(f"LAST_{i.upper()} = {obj_field.upper()}_{i.upper()}")
+    f.write(f"}};\n\n")
+    pass
 
 def generateClassStruct(i, f):
     obj = globals()[i]
@@ -227,10 +251,16 @@ with open("tmp.cpp", 'w') as f:
     f.write(f"#define __RECURSIVE_CIRCUIT02_HPP__\n\n")
     f.write(f"#include \"standard_defs/standard_defs.hpp\"\n\n")
     f.write(f"namespace RecursiveCircuit01 {{\n\n")
+    for i in enum_structs:
+        generateEnumStruct(i, f)
     for i in utility_structs:
         generateClassStruct(i, f)
     for i, i_arr in recursive_circuit:
         generateClassStruct(i, f)
+    for i, i_arr in recursive_circuit:
+        signature = getObjSign(i)
+        f.write(f"extern {signature} *{i_arr};\n")
+    f.write("\n")
     f.write(f"}};\n\n")
     f.write(f"#endif // __RECURSIVE_CIRCUIT02_HPP__\n")
     f.write("\n\n\n")
