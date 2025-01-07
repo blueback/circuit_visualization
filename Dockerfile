@@ -83,6 +83,28 @@ RUN apt-get -y install mesa-vulkan-drivers
 # Install Vulkan Packages {
 
 RUN apt-get -y install vulkan-tools
+RUN apt-get -y install libvulkan-dev
+RUN apt-get -y install vulkan-validationlayers-dev spirv-tools
+
+# Install GLFW for windowing {
+# Install XFree86-VidModeExtension {
+RUN apt-get -y install libxxf86vm-dev
+# }
+
+# Install X window system client interface to the XINPUT extension {
+RUN apt-get -y install libxi-dev
+# }
+
+RUN apt-get -y install libglfw3-dev
+# }
+
+# Install GLM for linear algebra {
+RUN apt-get -y install libglm-dev
+# }
+
+# Install Shader compiler glslc {
+RUN apt-get -y install glslc
+# }
 
 # }
 
