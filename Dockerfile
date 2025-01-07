@@ -61,6 +61,25 @@ RUN apt-get -y install libssl-dev
 
 RUN apt-get -y install ffmpeg
 
+
+# Install lshw to display graphics devices {
+#############
+# usage is lshw -C DISPLAY
+#
+RUN apt-get -y install lshw
+# }
+
+# Install Mesa vulkan drivers {
+
+############
+# following is needed to run glxinfo
+#
+RUN apt-get -y install mesa-utils
+
+RUN apt-get -y install mesa-vulkan-drivers
+
+# }
+
 #RUN apt-get -y install gcc g++ cmake
 
 ##################################################################
