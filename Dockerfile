@@ -35,6 +35,21 @@ RUN pip3 install jupyterlab --break-system-packages
 
 RUN pip3 install matplotlib --break-system-packages
 
+######   # Upgrade Ubuntu Mesa PPA {
+######   
+######   # Install software-properties-common package {
+######   
+######   # This is for command add-apt-repository
+######   RUN apt-get -y install python3-launchpadlib
+######   RUN apt-get -y install software-properties-common
+######   
+######   # }
+######   
+######   RUN add-apt-repository ppa:kisak/kisak-mesa
+######   RUN apt-get -y update && apt-get upgrade -y
+######   
+######   # }
+######   
 
 # Raylib dependencies {
 
@@ -60,6 +75,11 @@ RUN apt-get -y install libssl-dev
 # }
 
 RUN apt-get -y install ffmpeg
+
+# Install lscpi {
+RUN apt-get -y install pciutils
+# can see graphics card info using lspci | grep -i vga
+# }
 
 
 # Install lshw to display graphics devices {

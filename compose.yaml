@@ -11,6 +11,8 @@ services:
       - "5902:5902"
     volumes:
       - ${PWD}:${PWD}
+    devices:
+      - /dev/dri:/dev/dri
     attach: false
     tty: true
     working_dir: ${PWD}

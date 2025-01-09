@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
@@ -59,6 +60,7 @@ private:
   GLFWwindow *window;
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 private:
   void initWindow() {
@@ -249,9 +251,109 @@ private:
     }
   }
 
+  bool isDeviceSuitable(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+      if (deviceFeatures.geometryShader) {
+        return true;
+      }
+    } else if (deviceProperties.deviceType ==
+               VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+      if (deviceFeatures.geometryShader) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  int rateDeviceSuitability(VkPhysicalDevice device) {
+    int score = 0;
+
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    if (!isDeviceSuitable(device)) {
+      return 0;
+    }
+
+    // Discrete GPUs have a significant performance advantage
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+      score += 1000;
+    }
+
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+      score += 10;
+    }
+
+    // Maximum possible size of textures affects graphics quality
+    score += deviceProperties.limits.maxImageDimension2D;
+
+    std::cout << "Device \"" << deviceProperties.deviceName
+              << "\" Suitability Score :- " << score << std::endl;
+    std::cout << '\t' << "Type : " << deviceProperties.deviceType << std::endl;
+    std::cout << '\t'
+              << "Tesselation shader : " << deviceFeatures.tessellationShader
+              << std::endl;
+
+    // Application can't function without geometry shaders
+    if (!deviceFeatures.geometryShader) {
+      return 0;
+    }
+
+    return score;
+  }
+
+  void pickPhysicalDevice() {
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+    if (deviceCount == 0) {
+      throw std::runtime_error("failed to find GPUs with Vulkan support!");
+    }
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+    // Use an ordered map to automatically
+    // sort candidates by increasing score
+    std::multimap<int, VkPhysicalDevice> candidates;
+
+    for (const auto &device : devices) {
+      int score = rateDeviceSuitability(device);
+      candidates.insert(std::make_pair(score, device));
+    }
+
+    // Check if the best candidate is suitable at all
+    if (candidates.rbegin()->first > 0) {
+      physicalDevice = candidates.rbegin()->second;
+      if (physicalDevice == VK_NULL_HANDLE) {
+        throw std::runtime_error("failed to find a suitable GPU!");
+      } else {
+        VkPhysicalDeviceProperties deviceProperties;
+
+        vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+        std::cout << "Picking Device :- " << deviceProperties.deviceName
+                  << std::endl;
+      }
+    } else {
+      throw std::runtime_error(
+          "failed to find a suitable GPU, not sufficient score!");
+    }
+  }
+
   void initVulkan() {
     createInstance();
     setupDebugMessenger();
+    pickPhysicalDevice();
   }
 
   void mainLoop() {
