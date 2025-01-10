@@ -61,6 +61,7 @@ private:
   GLFWwindow *window;
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
+  VkSurfaceKHR surface;
   VkPhysicalDevice physicalDevicePrimeGPU = VK_NULL_HANDLE;
   VkPhysicalDevice physicalDeviceGPU = VK_NULL_HANDLE;
   VkDevice logicalDevicePrimeGPU;
@@ -265,6 +266,23 @@ private:
     return deviceProperties.deviceName;
   }
 
+  void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
+    std::cout << "Extensions for Device \"" << getPhysicalDeviceName(device)
+              << "\" ..." << std::endl;
+
+    uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                         nullptr);
+
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                         extensions.data());
+
+    for (const auto &extension : extensions) {
+      std::cout << "   Extension: " << extension.extensionName << std::endl;
+    }
+  }
+
   bool isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
@@ -274,6 +292,10 @@ private:
 
     std::cout << "Checking Device \"" << getPhysicalDeviceName(device)
               << "\" Suitability ..." << std::endl;
+
+    /*
+    printPhysicalDeviceExtensions(device);
+    */
 
     QueueFamilyIndices indices = findQueueFamilies(device);
 
@@ -483,10 +505,21 @@ private:
     }
   }
 
+  void createSurface() {
+    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) !=
+        VK_SUCCESS) {
+      std::cerr << "Failed to create vulkan surface!" << std::endl;
+    } else {
+      std::cout << "Created surface..." << std::endl;
+    }
+  }
+
   void initVulkan() {
     createInstance();
 
     setupDebugMessenger();
+
+    createSurface();
 
     pickPhysicalDevice();
 
@@ -511,6 +544,8 @@ private:
     if (enableValidationLayers) {
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
+
+    vkDestroySurfaceKHR(instance, surface, nullptr);
 
     vkDestroyInstance(instance, nullptr);
 
