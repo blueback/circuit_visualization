@@ -63,6 +63,8 @@ private:
   VkDebugUtilsMessengerEXT debugMessenger;
   VkPhysicalDevice physicalDevicePrimeGPU = VK_NULL_HANDLE;
   VkPhysicalDevice physicalDeviceGPU = VK_NULL_HANDLE;
+  VkDevice logicalDevicePrimeGPU;
+  VkDevice logicalDeviceGPU;
 
 private:
   void initWindow() {
@@ -420,10 +422,50 @@ private:
     return indices;
   }
 
+  void createLogicalDevice(VkPhysicalDevice physicalDevice, VkDevice &device) {
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+    queueCreateInfo.queueCount = 1;
+
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures{};
+
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+
+    createInfo.pEnabledFeatures = &deviceFeatures;
+
+    createInfo.enabledExtensionCount = 0;
+
+    if (enableValidationLayers) {
+      createInfo.enabledLayerCount =
+          static_cast<uint32_t>(validationLayers.size());
+      createInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+      createInfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to create logical device!");
+    }
+  }
+
   void initVulkan() {
     createInstance();
     setupDebugMessenger();
     pickPhysicalDevice();
+    createLogicalDevice(physicalDevicePrimeGPU, logicalDevicePrimeGPU);
+    createLogicalDevice(physicalDeviceGPU, logicalDeviceGPU);
   }
 
   void mainLoop() {
@@ -433,6 +475,9 @@ private:
   }
 
   void cleanup() {
+    vkDestroyDevice(logicalDevicePrimeGPU, nullptr);
+    vkDestroyDevice(logicalDeviceGPU, nullptr);
+
     if (enableValidationLayers) {
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
