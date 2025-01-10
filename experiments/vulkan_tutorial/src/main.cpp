@@ -65,6 +65,8 @@ private:
   VkPhysicalDevice physicalDeviceGPU = VK_NULL_HANDLE;
   VkDevice logicalDevicePrimeGPU;
   VkDevice logicalDeviceGPU;
+  VkQueue graphicsQueuePrime;
+  VkQueue graphicsQueue;
 
 private:
   void initWindow() {
@@ -255,6 +257,14 @@ private:
     }
   }
 
+  std::string getPhysicalDeviceName(VkPhysicalDevice physicalDevice) {
+    VkPhysicalDeviceProperties deviceProperties;
+
+    vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+
+    return deviceProperties.deviceName;
+  }
+
   bool isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
@@ -262,7 +272,7 @@ private:
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-    std::cout << "Checking Device \"" << deviceProperties.deviceName
+    std::cout << "Checking Device \"" << getPhysicalDeviceName(device)
               << "\" Suitability ..." << std::endl;
 
     QueueFamilyIndices indices = findQueueFamilies(device);
@@ -318,7 +328,7 @@ private:
     // Maximum possible size of textures affects graphics quality
     score += deviceProperties.limits.maxImageDimension2D;
 
-    std::cout << "Device \"" << deviceProperties.deviceName
+    std::cout << "Device \"" << getPhysicalDeviceName(device)
               << "\" Suitability Score :- " << score << std::endl;
     std::cout << '\t' << "Type : " << deviceProperties.deviceType << std::endl;
     std::cout << '\t'
@@ -359,12 +369,8 @@ private:
       if (physicalDevicePrimeGPU == VK_NULL_HANDLE) {
         throw std::runtime_error("failed to find a suitable GPU!");
       } else {
-        VkPhysicalDeviceProperties deviceProperties;
-
-        vkGetPhysicalDeviceProperties(physicalDevicePrimeGPU,
-                                      &deviceProperties);
-        std::cout << "Picking Device :- " << deviceProperties.deviceName
-                  << std::endl;
+        std::cout << "Picking Device :- "
+                  << getPhysicalDeviceName(physicalDevicePrimeGPU) << std::endl;
       }
     } else {
       throw std::runtime_error(
@@ -422,7 +428,21 @@ private:
     return indices;
   }
 
-  void createLogicalDevice(VkPhysicalDevice physicalDevice, VkDevice &device) {
+  void createGraphicsQueue(VkPhysicalDevice physicalDevice,
+                           VkDevice logicalDevice, VkQueue &graphicaQueue) {
+
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+    vkGetDeviceQueue(logicalDevice, indices.graphicsFamily.value(), 0,
+                     &graphicaQueue);
+
+    std::cout << "Created graphics queue for "
+              << getPhysicalDeviceName(physicalDevice) << std::endl;
+  }
+
+  void createLogicalDevice(VkPhysicalDevice physicalDevice,
+                           VkDevice &logicalDevice) {
+
     VkDeviceQueueCreateInfo queueCreateInfo{};
 
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
@@ -454,18 +474,28 @@ private:
       createInfo.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) !=
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) !=
         VK_SUCCESS) {
       throw std::runtime_error("failed to create logical device!");
+    } else {
+      std::cout << "Created logical device for "
+                << getPhysicalDeviceName(physicalDevice) << std::endl;
     }
   }
 
   void initVulkan() {
     createInstance();
+
     setupDebugMessenger();
+
     pickPhysicalDevice();
+
     createLogicalDevice(physicalDevicePrimeGPU, logicalDevicePrimeGPU);
     createLogicalDevice(physicalDeviceGPU, logicalDeviceGPU);
+
+    createGraphicsQueue(physicalDevicePrimeGPU, logicalDevicePrimeGPU,
+                        graphicsQueuePrime);
+    createGraphicsQueue(physicalDeviceGPU, logicalDeviceGPU, graphicsQueue);
   }
 
   void mainLoop() {
