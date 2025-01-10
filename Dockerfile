@@ -49,7 +49,7 @@ RUN pip3 install matplotlib --break-system-packages
 ######   RUN apt-get -y update && apt-get upgrade -y
 ######   
 ######   # }
-######   
+
 
 # Raylib dependencies {
 
@@ -67,6 +67,10 @@ RUN apt-get -y install libxinerama-dev libwayland-dev libxkbcommon-dev
 RUN apt-get -y install lxde
 RUN apt-get -y install xfce4
 
+# }
+
+# Install X11 server and related drivers {
+RUN apt-get -y install xserver-xorg-video-intel libdrm-intel1
 # }
 
 RUN apt-get -y install libpam-dev
