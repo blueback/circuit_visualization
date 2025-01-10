@@ -60,7 +60,8 @@ private:
   GLFWwindow *window;
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
-  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  VkPhysicalDevice physicalDevicePrimeGPU = VK_NULL_HANDLE;
+  VkPhysicalDevice physicalDeviceGPU = VK_NULL_HANDLE;
 
 private:
   void initWindow() {
@@ -267,6 +268,10 @@ private:
       if (deviceFeatures.geometryShader) {
         return true;
       }
+    } else if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) {
+      if (deviceFeatures.geometryShader) {
+        return true;
+      }
     }
 
     return false;
@@ -287,10 +292,14 @@ private:
 
     // Discrete GPUs have a significant performance advantage
     if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-      score += 1000;
+      score += 100000;
     }
 
     if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+      score += 1000;
+    }
+
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) {
       score += 10;
     }
 
@@ -334,14 +343,32 @@ private:
 
     // Check if the best candidate is suitable at all
     if (candidates.rbegin()->first > 0) {
-      physicalDevice = candidates.rbegin()->second;
-      if (physicalDevice == VK_NULL_HANDLE) {
+      physicalDevicePrimeGPU = candidates.rbegin()->second;
+      if (physicalDevicePrimeGPU == VK_NULL_HANDLE) {
         throw std::runtime_error("failed to find a suitable GPU!");
       } else {
         VkPhysicalDeviceProperties deviceProperties;
 
-        vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+        vkGetPhysicalDeviceProperties(physicalDevicePrimeGPU,
+                                      &deviceProperties);
         std::cout << "Picking Device :- " << deviceProperties.deviceName
+                  << std::endl;
+      }
+    } else {
+      throw std::runtime_error(
+          "failed to find a suitable GPU, not sufficient score!");
+    }
+
+    (candidates.erase(--candidates.end()));
+    if (candidates.rbegin()->first > 0) {
+      physicalDeviceGPU = candidates.rbegin()->second;
+      if (physicalDeviceGPU == VK_NULL_HANDLE) {
+        throw std::runtime_error("failed to find a suitable GPU!");
+      } else {
+        VkPhysicalDeviceProperties deviceProperties;
+
+        vkGetPhysicalDeviceProperties(physicalDeviceGPU, &deviceProperties);
+        std::cout << "Picking Device 2 :- " << deviceProperties.deviceName
                   << std::endl;
       }
     } else {
