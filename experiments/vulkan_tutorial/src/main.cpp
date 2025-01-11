@@ -14,6 +14,9 @@ const uint32_t HEIGHT = 600;
 const std::vector<const char *> validationLayers = {
     "VK_LAYER_KHRONOS_validation"};
 
+const std::vector<const char *> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -275,6 +278,54 @@ private:
     return deviceProperties.deviceName;
   }
 
+  void forEachAvailablePhysicalDevice(
+      std::function<IteratorStatus(VkPhysicalDevice)> f) {
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+    if (deviceCount == 0) {
+      return;
+    }
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+    std::sort(devices.begin(), devices.end(),
+              [&](VkPhysicalDevice d1, VkPhysicalDevice d2) {
+                int score1 = rateDeviceSuitability(d1);
+                int score2 = rateDeviceSuitability(d2);
+                return score1 > score2;
+              });
+
+    for (const auto &device : devices) {
+      if (f(device) == IterationBreak) {
+        return;
+      }
+    }
+  }
+
+  void forEachExtensionOfPhysicalDevice(
+      VkPhysicalDevice device,
+      std::function<IteratorStatus(VkExtensionProperties)> f) {
+    uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                         nullptr);
+
+    if (extensionCount == 0) {
+      return;
+    }
+
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                         extensions.data());
+
+    for (const auto &extension : extensions) {
+      if (f(extension) == IterationBreak) {
+        return;
+      }
+    }
+  }
+
   void forEachQueueFamilyOfDevice(
       VkPhysicalDevice physicalDevice,
       std::function<IteratorStatus(int, VkQueueFamilyProperties)> f) {
@@ -435,15 +486,40 @@ private:
     return hasComputeQueue;
   }
 
-  bool isDeviceSuitable(VkPhysicalDevice device) {
-    std::cout << "Checking Device \"" << getPhysicalDeviceName(device)
-              << "\" Suitability ..." << std::endl;
+  bool isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
+                                            const char *extensionName) {
+    bool isExtensionSupported = false;
+    forEachExtensionOfPhysicalDevice(
+        physicalDevice, [&](VkExtensionProperties extensionProperties) {
+          if (strcmp(extensionProperties.extensionName, extensionName) == 0) {
+            isExtensionSupported = true;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+    return isExtensionSupported;
+  }
 
+  bool checkPhysicalDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
+    for (const auto &deviceExtensionName : deviceExtensions) {
+      if (!isExtensionSupportedByPhysicalDevice(physicalDevice,
+                                                deviceExtensionName)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool isDeviceSuitable(VkPhysicalDevice device) {
     /*
     printPhysicalDeviceExtensions(device);
     */
 
     if (!isGraphicsQueueSupportedByPhysicalDevice(device)) {
+      return false;
+    }
+
+    if (!checkPhysicalDeviceExtensionSupport(device)) {
       return false;
     }
 
@@ -481,54 +557,6 @@ private:
     score += deviceProperties.limits.maxImageDimension2D;
 
     return score;
-  }
-
-  void forEachAvailablePhysicalDevice(
-      std::function<IteratorStatus(VkPhysicalDevice)> f) {
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-
-    if (deviceCount == 0) {
-      return;
-    }
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-    std::sort(devices.begin(), devices.end(),
-              [&](VkPhysicalDevice d1, VkPhysicalDevice d2) {
-                int score1 = rateDeviceSuitability(d1);
-                int score2 = rateDeviceSuitability(d2);
-                return score1 > score2;
-              });
-
-    for (const auto &device : devices) {
-      if (f(device) == IterationBreak) {
-        return;
-      }
-    }
-  }
-
-  void forEachExtensionOfPhysicalDevice(
-      VkPhysicalDevice device,
-      std::function<IteratorStatus(VkExtensionProperties)> f) {
-    uint32_t extensionCount = 0;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
-                                         nullptr);
-
-    if (extensionCount == 0) {
-      return;
-    }
-
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
-                                         extensions.data());
-
-    for (const auto &extension : extensions) {
-      if (f(extension) == IterationBreak) {
-        return;
-      }
-    }
   }
 
   void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
@@ -575,6 +603,7 @@ private:
     }
   }
 
+  /*
   struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
@@ -596,6 +625,7 @@ private:
     }
     return indices;
   }
+  */
 
   void createGraphicsQueue(VkPhysicalDevice physicalDevice,
                            VkDevice logicalDevice, VkQueue &graphicaQueue) {
@@ -659,7 +689,9 @@ private:
 
     createInfo.pEnabledFeatures = &deviceFeatures;
 
-    createInfo.enabledExtensionCount = 0;
+    createInfo.enabledExtensionCount =
+        static_cast<uint32_t>(deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
     if (enableValidationLayers) {
       createInfo.enabledLayerCount =
