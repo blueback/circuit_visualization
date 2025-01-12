@@ -77,7 +77,7 @@ private:
   std::vector<VkDevice> unpresentableLogicalDevices;
 
   VkQueue graphicsQueueForPresentable;
-  std::vector<VkQueue> graphicsQueuesForUnPresentable;
+  std::vector<VkQueue> graphicsQueuesForUnpresentable;
 
   VkQueue presentationQueueForPresentable;
 
@@ -973,14 +973,14 @@ private:
 
     for (auto const &physicalDevice : unpresentablePhysicalDevices) {
       unpresentableLogicalDevices.push_back(nullptr);
-      graphicsQueuesForUnPresentable.push_back(nullptr);
+      graphicsQueuesForUnpresentable.push_back(nullptr);
       createUnpresentableLogicalDevice(
           physicalDevice,
           unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1]);
       createGraphicsQueue(
           physicalDevice,
           unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1],
-          graphicsQueuesForUnPresentable[graphicsQueuesForUnPresentable.size() -
+          graphicsQueuesForUnpresentable[graphicsQueuesForUnpresentable.size() -
                                          1]);
     }
   }
