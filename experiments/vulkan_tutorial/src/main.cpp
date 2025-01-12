@@ -73,8 +73,8 @@ private:
   VkPhysicalDevice presentablePhysicalDevice = VK_NULL_HANDLE;
   VkDevice presentableLogicalDevice;
 
-  std::vector<VkPhysicalDevice> unPresentablePhysicalDevices;
-  std::vector<VkDevice> unPresentableLogicalDevices;
+  std::vector<VkPhysicalDevice> unpresentablePhysicalDevices;
+  std::vector<VkDevice> unpresentableLogicalDevices;
 
   VkQueue graphicsQueueForPresentable;
   std::vector<VkQueue> graphicsQueuesForUnPresentable;
@@ -597,7 +597,7 @@ private:
           presentablePhysicalDevice = device;
         } else {
           std::cout << "    device can only render OFF-screen" << std::endl;
-          unPresentablePhysicalDevices.push_back(device);
+          unpresentablePhysicalDevices.push_back(device);
         }
       }
       return IterationContinue;
@@ -965,15 +965,15 @@ private:
                             presentableWindowSurface,
                             presentationQueueForPresentable);
 
-    for (auto const &physicalDevice : unPresentablePhysicalDevices) {
-      unPresentableLogicalDevices.push_back(nullptr);
+    for (auto const &physicalDevice : unpresentablePhysicalDevices) {
+      unpresentableLogicalDevices.push_back(nullptr);
       graphicsQueuesForUnPresentable.push_back(nullptr);
       createUnpresentableLogicalDevice(
           physicalDevice,
-          unPresentableLogicalDevices[unPresentableLogicalDevices.size() - 1]);
+          unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1]);
       createGraphicsQueue(
           physicalDevice,
-          unPresentableLogicalDevices[unPresentableLogicalDevices.size() - 1],
+          unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1],
           graphicsQueuesForUnPresentable[graphicsQueuesForUnPresentable.size() -
                                          1]);
     }
@@ -996,7 +996,7 @@ private:
                           nullptr);
 
     vkDestroyDevice(presentableLogicalDevice, nullptr);
-    for (auto const &logicalDevice : unPresentableLogicalDevices) {
+    for (auto const &logicalDevice : unpresentableLogicalDevices) {
       vkDestroyDevice(logicalDevice, nullptr);
     }
 
