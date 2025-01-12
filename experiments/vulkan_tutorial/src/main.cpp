@@ -965,6 +965,12 @@ private:
                             presentableWindowSurface,
                             presentationQueueForPresentable);
 
+    createSwapChainForPresentation(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableWindowSurface, presentableSwapChain,
+        presentableSwapChainImages, presentableSwapChainImageFormat,
+        presentableSwapChainExtent);
+
     for (auto const &physicalDevice : unpresentablePhysicalDevices) {
       unpresentableLogicalDevices.push_back(nullptr);
       graphicsQueuesForUnPresentable.push_back(nullptr);
@@ -977,12 +983,6 @@ private:
           graphicsQueuesForUnPresentable[graphicsQueuesForUnPresentable.size() -
                                          1]);
     }
-
-    createSwapChainForPresentation(
-        presentablePhysicalDevice, presentableLogicalDevice,
-        presentableWindowSurface, presentableSwapChain,
-        presentableSwapChainImages, presentableSwapChainImageFormat,
-        presentableSwapChainExtent);
   }
 
   void mainLoop() {
