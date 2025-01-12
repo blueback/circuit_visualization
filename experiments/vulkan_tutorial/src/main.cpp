@@ -68,7 +68,7 @@ private:
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
 
-  VkSurfaceKHR surface;
+  VkSurfaceKHR presentableWindowSurface;
 
   VkPhysicalDevice presentablePhysicalDevice = VK_NULL_HANDLE;
   VkDevice presentableLogicalDevice;
@@ -571,7 +571,7 @@ private:
         });
   }
 
-  void pickPhysicalDevice() {
+  void pickPhysicalDevice(VkSurfaceKHR windowSurface) {
     forEachAvailablePhysicalDevice([&](VkPhysicalDevice device) {
       std::cout << "Probing Device :- " << getPhysicalDeviceName(device)
                 << "..." << std::endl;
@@ -586,7 +586,7 @@ private:
 
       if (isGeometryShaderSupportedByPhysicalDevice(device) &&
           isGraphicsQueueSupportedByPhysicalDevice(device)) {
-        if (isPhysicalDevicePresentable(device, surface)) {
+        if (isPhysicalDevicePresentable(device, windowSurface)) {
           std::cout << "    device can also render ON-screen" << std::endl;
           presentablePhysicalDevice = device;
         } else {
@@ -641,33 +641,25 @@ private:
 
   void createPresentationQueue(VkPhysicalDevice physicalDevice,
                                VkDevice logicalDevice,
+                               VkSurfaceKHR windowSurface,
                                VkQueue &presentationQueue) {
 
-    assert(isPhysicalDevicePresentable(physicalDevice, surface));
+    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
 
-    vkGetDeviceQueue(logicalDevice,
-                     getPresentationQueueFamilyIndex(physicalDevice, surface),
-                     0, &presentationQueue);
+    vkGetDeviceQueue(
+        logicalDevice,
+        getPresentationQueueFamilyIndex(physicalDevice, windowSurface), 0,
+        &presentationQueue);
 
     std::cout << "Created presentation queue for "
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
   void createLogicalDevice(VkPhysicalDevice physicalDevice,
+                           std::set<uint32_t> &uniqueQueueFamilies,
                            VkDevice &logicalDevice) {
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies;
-
-    if (isPhysicalDevicePresentable(physicalDevice, surface)) {
-      uniqueQueueFamilies.insert(
-          getPresentationQueueFamilyIndex(physicalDevice, surface));
-    }
-
-    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
-      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
     float queuePriority = 1.0f;
     for (uint32_t queueFamilyIndex : uniqueQueueFamilies) {
       VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -710,8 +702,37 @@ private:
     }
   }
 
-  void createSurface() {
-    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) !=
+  void createPresentableLogicalDevice(VkPhysicalDevice physicalDevice,
+                                      VkSurfaceKHR windowSurface,
+                                      VkDevice &logicalDevice) {
+
+    std::set<uint32_t> uniqueQueueFamilies;
+
+    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
+    uniqueQueueFamilies.insert(
+        getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
+
+    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
+      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
+    }
+
+    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+  }
+
+  void createUnpresentableLogicalDevice(VkPhysicalDevice physicalDevice,
+                                        VkDevice &logicalDevice) {
+
+    std::set<uint32_t> uniqueQueueFamilies;
+
+    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
+      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
+    }
+
+    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+  }
+
+  void createSurface(VkSurfaceKHR &windowSurface) {
+    if (glfwCreateWindowSurface(instance, window, nullptr, &windowSurface) !=
         VK_SUCCESS) {
       std::cerr << "Failed to create vulkan surface!" << std::endl;
     } else {
@@ -724,20 +745,23 @@ private:
 
     setupDebugMessenger();
 
-    createSurface();
+    createSurface(presentableWindowSurface);
 
-    pickPhysicalDevice();
+    pickPhysicalDevice(presentableWindowSurface);
 
-    createLogicalDevice(presentablePhysicalDevice, presentableLogicalDevice);
+    createPresentableLogicalDevice(presentablePhysicalDevice,
+                                   presentableWindowSurface,
+                                   presentableLogicalDevice);
     createGraphicsQueue(presentablePhysicalDevice, presentableLogicalDevice,
                         graphicsQueueForPresentable);
     createPresentationQueue(presentablePhysicalDevice, presentableLogicalDevice,
+                            presentableWindowSurface,
                             presentationQueueForPresentable);
 
     for (auto const &physicalDevice : unPresentablePhysicalDevices) {
       unPresentableLogicalDevices.push_back(nullptr);
       graphicsQueuesForUnPresentable.push_back(nullptr);
-      createLogicalDevice(
+      createUnpresentableLogicalDevice(
           physicalDevice,
           unPresentableLogicalDevices[unPresentableLogicalDevices.size() - 1]);
       createGraphicsQueue(
@@ -764,7 +788,7 @@ private:
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
-    vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroySurfaceKHR(instance, presentableWindowSurface, nullptr);
 
     vkDestroyInstance(instance, nullptr);
 
