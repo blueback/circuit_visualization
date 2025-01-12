@@ -86,6 +86,9 @@ private:
   VkFormat presentableSwapChainImageFormat;
   VkExtent2D presentableSwapChainExtent;
 
+  std::vector<VkImage> unpresentableDeviceImages;
+  std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
+
 private:
   void initWindow() {
     glfwInit();
@@ -947,6 +950,85 @@ private:
     swapChainExtent = extent;
   }
 
+  void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
+                                      VkDevice logicalDevice, uint32_t width,
+                                      uint32_t height, VkFormat format,
+                                      VkImage &image) {
+    VkImageCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    createInfo.imageType = VK_IMAGE_TYPE_2D;
+    createInfo.extent.width = width;
+    createInfo.extent.height = height;
+    createInfo.extent.depth = 1;
+    createInfo.mipLevels = 1;
+    createInfo.arrayLayers = 1;
+    createInfo.format = format;
+    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    createInfo.usage =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(logicalDevice, &createInfo, nullptr, &image) !=
+        VK_SUCCESS) {
+      throw std::runtime_error(
+          "Failed to create image for unpresentable device");
+    } else {
+      std::cout << "Creating image for unpresentable device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
+                          VkPhysicalDevice physicalDevice) {
+
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+      if ((typeFilter & (1 << i)) &&
+          (memProperties.memoryTypes[i].propertyFlags & properties) ==
+              properties) {
+        return i;
+      }
+    }
+
+    // If no suitable memory type is found
+    throw std::runtime_error("Failed to find suitable memory type!");
+  }
+
+  void allocateMemoryForUnpresentableDeviceImage(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage image,
+      VkDeviceMemory &imageMemory) {
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex =
+        findMemoryType(memRequirements.memoryTypeBits,
+                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) !=
+        VK_SUCCESS) {
+      throw std::runtime_error(
+          "Failed to allocate memory for unpresentable images!");
+    } else {
+      std::cout << "Creating memory for image for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    if (vkBindImageMemory(logicalDevice, image, imageMemory, 0) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to bind memory to unpresentable image!");
+    } else {
+      std::cout << "Binding memory to image for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -971,17 +1053,28 @@ private:
         presentableSwapChainImages, presentableSwapChainImageFormat,
         presentableSwapChainExtent);
 
-    for (auto const &physicalDevice : unpresentablePhysicalDevices) {
-      unpresentableLogicalDevices.push_back(nullptr);
-      graphicsQueuesForUnpresentable.push_back(nullptr);
-      createUnpresentableLogicalDevice(
-          physicalDevice,
-          unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1]);
-      createGraphicsQueue(
-          physicalDevice,
-          unpresentableLogicalDevices[unpresentableLogicalDevices.size() - 1],
-          graphicsQueuesForUnpresentable[graphicsQueuesForUnpresentable.size() -
-                                         1]);
+    unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
+    graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
+    unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
+    unpresentableDeviceImageMemories.resize(
+        unpresentablePhysicalDevices.size());
+
+    for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
+      createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
+                                       unpresentableLogicalDevices[i]);
+
+      createGraphicsQueue(unpresentablePhysicalDevices[i],
+                          unpresentableLogicalDevices[i],
+                          graphicsQueuesForUnpresentable[i]);
+
+      createUnpresentableDeviceImage(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          presentableSwapChainExtent.width, presentableSwapChainExtent.height,
+          presentableSwapChainImageFormat, unpresentableDeviceImages[i]);
+
+      allocateMemoryForUnpresentableDeviceImage(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceImages[i], unpresentableDeviceImageMemories[i]);
     }
   }
 
@@ -992,6 +1085,15 @@ private:
   }
 
   void cleanup() {
+
+    for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkFreeMemory(unpresentableLogicalDevices[i],
+                   unpresentableDeviceImageMemories[i], nullptr);
+
+      vkDestroyImage(unpresentableLogicalDevices[i],
+                     unpresentableDeviceImages[i], nullptr);
+    }
+
     vkDestroySwapchainKHR(presentableLogicalDevice, presentableSwapChain,
                           nullptr);
 
