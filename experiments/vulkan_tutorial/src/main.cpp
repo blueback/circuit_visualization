@@ -82,6 +82,9 @@ private:
   VkQueue presentationQueueForPresentable;
 
   VkSwapchainKHR presentableSwapChain;
+  std::vector<VkImage> presentableSwapChainImages;
+  VkFormat presentableSwapChainImageFormat;
+  VkExtent2D presentableSwapChainExtent;
 
 private:
   void initWindow() {
@@ -850,9 +853,28 @@ private:
     }
   }
 
+  void forEachImageOfSwapChain(VkDevice logicalDevice, VkSwapchainKHR swapChain,
+                               std::function<IteratorStatus(VkImage)> f) {
+    uint32_t imageCount;
+    vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
+    std::vector<VkImage> images(imageCount);
+    vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount,
+                            images.data());
+
+    for (auto const &image : images) {
+      if (f(image) == IterationBreak) {
+        return;
+      }
+    }
+  }
+
   void createSwapChainForPresentation(VkPhysicalDevice physicalDevice,
                                       VkDevice logicalDevice,
-                                      VkSurfaceKHR windowSurface) {
+                                      VkSurfaceKHR windowSurface,
+                                      VkSwapchainKHR &swapChain,
+                                      std::vector<VkImage> &swapChainImages,
+                                      VkFormat &swapChainImageFormat,
+                                      VkExtent2D &swapChainExtent) {
 
     SwapChainSupportDetails swapChainSupport =
         querySwapChainDetails(physicalDevice, windowSurface);
@@ -908,13 +930,21 @@ private:
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr,
-                             &presentableSwapChain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &swapChain) !=
+        VK_SUCCESS) {
       throw std::runtime_error("failed to create swap chain!");
     } else {
       std::cout << "Created Swap Chain for device \""
                 << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
+
+    forEachImageOfSwapChain(logicalDevice, swapChain, [&](VkImage image) {
+      swapChainImages.push_back(image);
+      return IterationContinue;
+    });
+
+    swapChainImageFormat = surfaceFormat.format;
+    swapChainExtent = extent;
   }
 
   void initVulkan() {
@@ -948,9 +978,11 @@ private:
                                          1]);
     }
 
-    createSwapChainForPresentation(presentablePhysicalDevice,
-                                   presentableLogicalDevice,
-                                   presentableWindowSurface);
+    createSwapChainForPresentation(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableWindowSurface, presentableSwapChain,
+        presentableSwapChainImages, presentableSwapChainImageFormat,
+        presentableSwapChainExtent);
   }
 
   void mainLoop() {
