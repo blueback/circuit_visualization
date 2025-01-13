@@ -85,9 +85,11 @@ private:
   std::vector<VkImage> presentableSwapChainImages;
   VkFormat presentableSwapChainImageFormat;
   VkExtent2D presentableSwapChainExtent;
+  std::vector<VkImageView> presentableSwapChainImageViews;
 
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
+  std::vector<VkImageView> unpresentableDeviceImageViews;
 
 private:
   void initWindow() {
@@ -1029,6 +1031,72 @@ private:
     }
   }
 
+  VkImageViewCreateInfo fillImageViewCreateInfo(VkImage image,
+                                                VkFormat format) {
+    VkImageViewCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    createInfo.image = image;
+    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.format = format;
+
+    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    createInfo.subresourceRange.baseMipLevel = 0;
+    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.baseArrayLayer = 0;
+    createInfo.subresourceRange.layerCount = 1;
+
+    return createInfo;
+  }
+
+  void createImageViewsForPresentation(std::vector<VkImage> &images,
+                                       VkFormat format,
+                                       VkPhysicalDevice physicalDevice,
+                                       VkDevice logicalDevice,
+                                       std::vector<VkImageView> &imageViews) {
+    imageViews.resize(images.size());
+    for (size_t i = 0; i < images.size(); i++) {
+      VkImageViewCreateInfo createInfo =
+          fillImageViewCreateInfo(images[i], format);
+
+      if (vkCreateImageView(logicalDevice, &createInfo, nullptr,
+                            &imageViews[i]) != VK_SUCCESS) {
+        throw std::runtime_error(
+            "failed to create image views for presentation!");
+      } else {
+        std::cout << "Created image view \"" << i << "\" for device \""
+                  << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      }
+    }
+  }
+
+  void createImageViewForUnpresentableDevice(VkImage image, VkFormat format,
+                                             VkPhysicalDevice physicalDevice,
+                                             VkDevice logicalDevice,
+                                             VkImageView &imageView) {
+    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
+
+    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
+        VK_SUCCESS) {
+      throw std::runtime_error(
+          "failed to create image views for presentation!");
+    } else {
+      std::cout << "Created image view \"0\" for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  void destroyImageViewsForPresentation(VkDevice logicalDevice,
+                                        std::vector<VkImageView> &imageViews) {
+    for (auto imageView : imageViews) {
+      vkDestroyImageView(logicalDevice, imageView, nullptr);
+    }
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -1053,11 +1121,17 @@ private:
         presentableSwapChainImages, presentableSwapChainImageFormat,
         presentableSwapChainExtent);
 
+    createImageViewsForPresentation(
+        presentableSwapChainImages, presentableSwapChainImageFormat,
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableSwapChainImageViews);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImageMemories.resize(
         unpresentablePhysicalDevices.size());
+    unpresentableDeviceImageViews.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1075,6 +1149,11 @@ private:
       allocateMemoryForUnpresentableDeviceImage(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceImages[i], unpresentableDeviceImageMemories[i]);
+
+      createImageViewForUnpresentableDevice(
+          unpresentableDeviceImages[i], presentableSwapChainImageFormat,
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceImageViews[i]);
     }
   }
 
@@ -1087,12 +1166,18 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkDestroyImageView(unpresentableLogicalDevices[i],
+                         unpresentableDeviceImageViews[i], nullptr);
+
       vkFreeMemory(unpresentableLogicalDevices[i],
                    unpresentableDeviceImageMemories[i], nullptr);
 
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    destroyImageViewsForPresentation(presentableLogicalDevice,
+                                     presentableSwapChainImageViews);
 
     vkDestroySwapchainKHR(presentableLogicalDevice, presentableSwapChain,
                           nullptr);
