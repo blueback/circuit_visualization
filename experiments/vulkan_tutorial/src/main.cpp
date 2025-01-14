@@ -91,6 +91,8 @@ private:
   VkRenderPass presentableRenderPass;
   VkPipeline presentableGraphicsPipeline;
 
+  std::vector<VkFramebuffer> presentableSwapChainFrameBuffers;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
@@ -98,6 +100,8 @@ private:
   std::vector<VkPipelineLayout> unpresentableGraphicsPipelineLayouts;
   std::vector<VkRenderPass> unpresentableRenderPasses;
   std::vector<VkPipeline> unpresentableGraphicsPipelines;
+
+  std::vector<VkFramebuffer> unpresentableDeviceFrameBuffers;
 
 private:
   void initWindow() {
@@ -1367,6 +1371,68 @@ private:
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
   }
 
+  static VkFramebufferCreateInfo
+  createFrameBufferInfo(std::vector<VkImageView> &attachments,
+                        VkRenderPass renderPass, VkExtent2D extent) {
+    VkFramebufferCreateInfo frameBufferInfo{};
+    frameBufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frameBufferInfo.renderPass = renderPass;
+    frameBufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    frameBufferInfo.pAttachments = attachments.data();
+    frameBufferInfo.width = extent.width;
+    frameBufferInfo.height = extent.height;
+    frameBufferInfo.layers = 1;
+
+    return frameBufferInfo;
+  }
+
+  static void createFrameBuffer(VkDevice logicalDevice, VkImageView imageView,
+                                VkRenderPass renderPass, VkExtent2D extent,
+                                VkFramebuffer &frameBuffer) {
+    std::vector<VkImageView> attachments;
+    attachments.push_back(imageView);
+
+    VkFramebufferCreateInfo frameBufferInfo =
+        createFrameBufferInfo(attachments, renderPass, extent);
+
+    if (vkCreateFramebuffer(logicalDevice, &frameBufferInfo, nullptr,
+                            &frameBuffer) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create framebuffer!");
+    }
+  }
+
+  static void createFrameBuffersForPresentation(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      std::vector<VkImageView> &imageViews, VkRenderPass renderPass,
+      VkExtent2D extent, std::vector<VkFramebuffer> &frameBuffers) {
+    frameBuffers.resize(imageViews.size());
+    for (size_t i = 0; i < imageViews.size(); i++) {
+      createFrameBuffer(logicalDevice, imageViews[i], renderPass, extent,
+                        frameBuffers[i]);
+      std::cout << "Created presentable framebuffer \"" << i
+                << "\" for device \"" << getPhysicalDeviceName(physicalDevice)
+                << "\"" << std::endl;
+    }
+  }
+
+  static void createFrameBufferForUnpresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkImageView imageView, VkRenderPass renderPass, VkExtent2D extent,
+      VkFramebuffer &frameBuffer) {
+    createFrameBuffer(logicalDevice, imageView, renderPass, extent,
+                      frameBuffer);
+    std::cout << "Created unpresentable framebuffer \"0\" for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+  }
+
+  static void
+  destroyFrameBuffersForPresentation(VkDevice logicalDevice,
+                                     std::vector<VkFramebuffer> &frameBuffers) {
+    for (auto frameBuffer : frameBuffers) {
+      vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
+    }
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -1408,6 +1474,11 @@ private:
         presentableSwapChainExtent, false, presentableRenderPass,
         presentableGraphicsPipelineLayout, presentableGraphicsPipeline);
 
+    createFrameBuffersForPresentation(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableSwapChainImageViews, presentableRenderPass,
+        presentableSwapChainExtent, presentableSwapChainFrameBuffers);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
@@ -1419,6 +1490,7 @@ private:
         unpresentablePhysicalDevices.size());
     unpresentableRenderPasses.resize(unpresentablePhysicalDevices.size());
     unpresentableGraphicsPipelines.resize(unpresentablePhysicalDevices.size());
+    unpresentableDeviceFrameBuffers.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1455,6 +1527,11 @@ private:
           presentableSwapChainExtent, false, unpresentableRenderPasses[i],
           unpresentableGraphicsPipelineLayouts[i],
           unpresentableGraphicsPipelines[i]);
+
+      createFrameBufferForUnpresentableDevice(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceImageViews[i], unpresentableRenderPasses[i],
+          presentableSwapChainExtent, unpresentableDeviceFrameBuffers[i]);
     }
   }
 
@@ -1467,6 +1544,9 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkDestroyFramebuffer(unpresentableLogicalDevices[i],
+                           unpresentableDeviceFrameBuffers[i], nullptr);
+
       vkDestroyPipeline(unpresentableLogicalDevices[i],
                         unpresentableGraphicsPipelines[i], nullptr);
 
@@ -1485,6 +1565,9 @@ private:
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    destroyFrameBuffersForPresentation(presentableLogicalDevice,
+                                       presentableSwapChainFrameBuffers);
 
     vkDestroyPipeline(presentableLogicalDevice, presentableGraphicsPipeline,
                       nullptr);
