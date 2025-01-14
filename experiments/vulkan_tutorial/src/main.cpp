@@ -87,9 +87,17 @@ private:
   VkExtent2D presentableSwapChainExtent;
   std::vector<VkImageView> presentableSwapChainImageViews;
 
+  VkPipelineLayout presentableGraphicsPipelineLayout;
+  VkRenderPass presentableRenderPass;
+  VkPipeline presentableGraphicsPipeline;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
+
+  std::vector<VkPipelineLayout> unpresentableGraphicsPipelineLayouts;
+  std::vector<VkRenderPass> unpresentableRenderPasses;
+  std::vector<VkPipeline> unpresentableGraphicsPipelines;
 
 private:
   void initWindow() {
@@ -280,7 +288,7 @@ private:
     }
   }
 
-  std::string getPhysicalDeviceName(VkPhysicalDevice physicalDevice) {
+  static std::string getPhysicalDeviceName(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -1097,6 +1105,268 @@ private:
     }
   }
 
+  static std::vector<char> readFile(const std::string &filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+      throw std::runtime_error("failed to open file!");
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+
+    file.close();
+    return buffer;
+  }
+
+  static VkShaderModule createShaderModule(VkPhysicalDevice physicalDevice,
+                                           VkDevice logicalDevice,
+                                           const std::string &filename) {
+    auto shaderCode = readFile(filename);
+
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = shaderCode.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t *>(shaderCode.data());
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(logicalDevice, &createInfo, nullptr,
+                             &shaderModule) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create shader module!");
+    } else {
+      std::cout << "Created Shader module \"" << filename << "\" for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    return shaderModule;
+  }
+
+  static void createRenderPass(VkPhysicalDevice physicalDevice,
+                               VkDevice logicalDevice, VkFormat format,
+                               VkRenderPass &renderPass) {
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = format;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+
+    if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr,
+                           &renderPass) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create render pass!");
+    } else {
+      std::cout << "Created render pass for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void createGraphicsPipelineLayout(VkPhysicalDevice physicalDevice,
+                                           VkDevice logicalDevice,
+                                           VkPipelineLayout &pipelineLayout) {
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0;            // Optional
+    pipelineLayoutInfo.pSetLayouts = nullptr;         // Optional
+    pipelineLayoutInfo.pushConstantRangeCount = 0;    // Optional
+    pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+
+    if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr,
+                               &pipelineLayout) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create pipeline layout!");
+    } else {
+      std::cout << "Created graphics pipeline layout for \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void createGraphicsPipeline(VkPhysicalDevice physicalDevice,
+                                     VkDevice logicalDevice, VkExtent2D extent,
+                                     const bool isDynamicViewPortAndScissor,
+                                     VkRenderPass renderPass,
+                                     VkPipelineLayout pipelineLayout,
+                                     VkPipeline &graphicsPipeline) {
+    VkShaderModule vertShaderModule =
+        createShaderModule(physicalDevice, logicalDevice, "shaders/vert.spv");
+    VkShaderModule fragShaderModule =
+        createShaderModule(physicalDevice, logicalDevice, "shaders/frag.spv");
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
+                                                      fragShaderStageInfo};
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)extent.width;
+    viewport.height = (float)extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    if (isDynamicViewPortAndScissor) {
+      std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
+                                                   VK_DYNAMIC_STATE_SCISSOR};
+
+      dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+      dynamicState.dynamicStateCount =
+          static_cast<uint32_t>(dynamicStates.size());
+      dynamicState.pDynamicStates = dynamicStates.data();
+
+      viewportState.sType =
+          VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+      viewportState.viewportCount = 1;
+      viewportState.scissorCount = 1;
+    } else {
+      dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+      dynamicState.dynamicStateCount = 0;
+      dynamicState.pDynamicStates = nullptr;
+
+      viewportState.sType =
+          VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+      viewportState.viewportCount = 1;
+      viewportState.pViewports = &viewport;
+      viewportState.scissorCount = 1;
+      viewportState.pScissors = &scissor;
+    }
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+    rasterizer.depthBiasClamp = 0.0f;          // Optional
+    rasterizer.depthBiasSlopeFactor = 0.0f;    // Optional
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.minSampleShading = 1.0f;          // Optional
+    multisampling.pSampleMask = nullptr;            // Optional
+    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
+    multisampling.alphaToOneEnable = VK_FALSE;      // Optional
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;  // Optional
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.blendConstants[0] = 0.0f; // Optional
+    colorBlending.blendConstants[1] = 0.0f; // Optional
+    colorBlending.blendConstants[2] = 0.0f; // Optional
+    colorBlending.blendConstants[3] = 0.0f; // Optional
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+
+    pipelineInfo.layout = pipelineLayout;
+
+    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.subpass = 0;
+
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+    pipelineInfo.basePipelineIndex = -1;              // Optional
+
+    if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1,
+                                  &pipelineInfo, nullptr,
+                                  &graphicsPipeline) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create graphics pipeline!");
+    } else {
+      std::cout << "Created graphics pipeline for \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
+    vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -1126,12 +1396,29 @@ private:
         presentablePhysicalDevice, presentableLogicalDevice,
         presentableSwapChainImageViews);
 
+    createRenderPass(presentablePhysicalDevice, presentableLogicalDevice,
+                     presentableSwapChainImageFormat, presentableRenderPass);
+
+    createGraphicsPipelineLayout(presentablePhysicalDevice,
+                                 presentableLogicalDevice,
+                                 presentableGraphicsPipelineLayout);
+
+    createGraphicsPipeline(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableSwapChainExtent, false, presentableRenderPass,
+        presentableGraphicsPipelineLayout, presentableGraphicsPipeline);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImageMemories.resize(
         unpresentablePhysicalDevices.size());
     unpresentableDeviceImageViews.resize(unpresentablePhysicalDevices.size());
+
+    unpresentableGraphicsPipelineLayouts.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableRenderPasses.resize(unpresentablePhysicalDevices.size());
+    unpresentableGraphicsPipelines.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1154,6 +1441,20 @@ private:
           unpresentableDeviceImages[i], presentableSwapChainImageFormat,
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceImageViews[i]);
+
+      createRenderPass(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          presentableSwapChainImageFormat, unpresentableRenderPasses[i]);
+
+      createGraphicsPipelineLayout(unpresentablePhysicalDevices[i],
+                                   unpresentableLogicalDevices[i],
+                                   unpresentableGraphicsPipelineLayouts[i]);
+
+      createGraphicsPipeline(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          presentableSwapChainExtent, false, unpresentableRenderPasses[i],
+          unpresentableGraphicsPipelineLayouts[i],
+          unpresentableGraphicsPipelines[i]);
     }
   }
 
@@ -1166,6 +1467,15 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkDestroyPipeline(unpresentableLogicalDevices[i],
+                        unpresentableGraphicsPipelines[i], nullptr);
+
+      vkDestroyPipelineLayout(unpresentableLogicalDevices[i],
+                              unpresentableGraphicsPipelineLayouts[i], nullptr);
+
+      vkDestroyRenderPass(unpresentableLogicalDevices[i],
+                          unpresentableRenderPasses[i], nullptr);
+
       vkDestroyImageView(unpresentableLogicalDevices[i],
                          unpresentableDeviceImageViews[i], nullptr);
 
@@ -1175,6 +1485,15 @@ private:
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    vkDestroyPipeline(presentableLogicalDevice, presentableGraphicsPipeline,
+                      nullptr);
+
+    vkDestroyPipelineLayout(presentableLogicalDevice,
+                            presentableGraphicsPipelineLayout, nullptr);
+
+    vkDestroyRenderPass(presentableLogicalDevice, presentableRenderPass,
+                        nullptr);
 
     destroyImageViewsForPresentation(presentableLogicalDevice,
                                      presentableSwapChainImageViews);

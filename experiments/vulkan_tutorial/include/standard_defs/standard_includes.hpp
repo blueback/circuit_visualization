@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <errno.h>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <set>
