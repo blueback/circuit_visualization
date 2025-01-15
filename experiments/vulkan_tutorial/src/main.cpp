@@ -1214,6 +1214,7 @@ private:
 
   static void createRenderPass(VkPhysicalDevice physicalDevice,
                                VkDevice logicalDevice, VkFormat format,
+                               VkImageLayout finalLayout,
                                VkRenderPass &renderPass) {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = format;
@@ -1226,7 +1227,7 @@ private:
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachment.finalLayout = finalLayout;
 
     VkAttachmentReference colorAttachmentRef{};
     colorAttachmentRef.attachment = 0;
@@ -1563,7 +1564,8 @@ private:
         presentableSwapChainImageViews);
 
     createRenderPass(presentablePhysicalDevice, presentableLogicalDevice,
-                     presentableSwapChainImageFormat, presentableRenderPass);
+                     presentableSwapChainImageFormat,
+                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, presentableRenderPass);
 
     createGraphicsPipelineLayout(presentablePhysicalDevice,
                                  presentableLogicalDevice,
@@ -1625,7 +1627,8 @@ private:
 
       createRenderPass(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          presentableSwapChainImageFormat, unpresentableRenderPasses[i]);
+          presentableSwapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+          unpresentableRenderPasses[i]);
 
       createGraphicsPipelineLayout(unpresentablePhysicalDevices[i],
                                    unpresentableLogicalDevices[i],
