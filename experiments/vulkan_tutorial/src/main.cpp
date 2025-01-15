@@ -514,6 +514,52 @@ private:
     return hasComputeQueue;
   }
 
+  static uint32_t getComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
+    std::optional<uint32_t> computeQueueIndex;
+    forEachQueueFamilyOfDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
+          if (queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            computeQueueIndex = queueIndex;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+    assert(computeQueueIndex.has_value());
+    return computeQueueIndex.value();
+  }
+
+  static bool
+  isTransferQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
+    bool hasTransferQueue = false;
+    forEachQueueFamilyOfDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
+          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+            hasTransferQueue = true;
+            return IterationBreak;
+          }
+
+          return IterationContinue;
+        });
+    return hasTransferQueue;
+  }
+
+  static uint32_t getTransferQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
+    std::optional<uint32_t> transferQueueIndex;
+    forEachQueueFamilyOfDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
+          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+            transferQueueIndex = queueIndex;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+    assert(transferQueueIndex.has_value());
+    return transferQueueIndex.value();
+  }
+
   bool isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
                                             const char *extensionName) {
     bool isExtensionSupported = false;
@@ -618,7 +664,7 @@ private:
             isSwapChainAdequateForPresentation(device, windowSurface)) {
           std::cout << "    device can also render ON-screen" << std::endl;
           presentablePhysicalDevice = device;
-        } else {
+        } else if (isTransferQueueSupportedByPhysicalDevice(device)) {
           std::cout << "    device can only render OFF-screen" << std::endl;
           unpresentablePhysicalDevices.push_back(device);
         }
@@ -657,12 +703,12 @@ private:
   */
 
   void createGraphicsQueue(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkQueue &graphicaQueue) {
+                           VkDevice logicalDevice, VkQueue &graphicsQueue) {
 
     assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
 
     vkGetDeviceQueue(logicalDevice, getGraphicsQueueFamilyIndex(physicalDevice),
-                     0, &graphicaQueue);
+                     0, &graphicsQueue);
 
     std::cout << "Created graphics queue for "
               << getPhysicalDeviceName(physicalDevice) << std::endl;
@@ -681,6 +727,18 @@ private:
         &presentationQueue);
 
     std::cout << "Created presentation queue for "
+              << getPhysicalDeviceName(physicalDevice) << std::endl;
+  }
+
+  void createTransferQueue(VkPhysicalDevice physicalDevice,
+                           VkDevice logicalDevice, VkQueue &transferQueue) {
+
+    assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
+
+    vkGetDeviceQueue(logicalDevice, getTransferQueueFamilyIndex(physicalDevice),
+                     0, &transferQueue);
+
+    std::cout << "Created transfer queue for "
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
