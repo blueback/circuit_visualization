@@ -93,6 +93,9 @@ private:
 
   std::vector<VkFramebuffer> presentableSwapChainFrameBuffers;
 
+  VkCommandPool presentableCommandPool;
+  VkCommandBuffer presentableCommandBuffer;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
@@ -102,6 +105,9 @@ private:
   std::vector<VkPipeline> unpresentableGraphicsPipelines;
 
   std::vector<VkFramebuffer> unpresentableDeviceFrameBuffers;
+
+  std::vector<VkCommandPool> unpresentableCommandPools;
+  std::vector<VkCommandBuffer> unpresentableCommandBuffers;
 
 private:
   void initWindow() {
@@ -348,7 +354,7 @@ private:
     }
   }
 
-  void forEachQueueFamilyOfDevice(
+  static void forEachQueueFamilyOfDevice(
       VkPhysicalDevice physicalDevice,
       std::function<IteratorStatus(int, VkQueueFamilyProperties)> f) {
     uint32_t queueFamilyCount = 0;
@@ -367,9 +373,8 @@ private:
     }
   }
 
-  bool isPresentationSupportedByQueueOnSurface(VkPhysicalDevice physicalDevice,
-                                               int queueIndex,
-                                               VkSurfaceKHR surface) {
+  static bool isPresentationSupportedByQueueOnSurface(
+      VkPhysicalDevice physicalDevice, int queueIndex, VkSurfaceKHR surface) {
     VkBool32 queueSupportPresentation = false;
     vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueIndex, surface,
                                          &queueSupportPresentation);
@@ -380,8 +385,8 @@ private:
     return false;
   }
 
-  bool isPhysicalDevicePresentable(VkPhysicalDevice physicalDevice,
-                                   VkSurfaceKHR surface) {
+  static bool isPhysicalDevicePresentable(VkPhysicalDevice physicalDevice,
+                                          VkSurfaceKHR surface) {
 
     bool presentable = false;
     forEachQueueFamilyOfDevice(
@@ -397,8 +402,9 @@ private:
     return presentable;
   }
 
-  uint32_t getPresentationQueueFamilyIndex(VkPhysicalDevice physicalDevice,
-                                           VkSurfaceKHR surface) {
+  static uint32_t
+  getPresentationQueueFamilyIndex(VkPhysicalDevice physicalDevice,
+                                  VkSurfaceKHR surface) {
 
     std::optional<uint32_t> presentationQueueIndex;
     forEachQueueFamilyOfDevice(
@@ -461,7 +467,7 @@ private:
     return true;
   }
 
-  bool
+  static bool
   isGraphicsQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
     bool hasGraphicsQueue = false;
     forEachQueueFamilyOfDevice(
@@ -477,7 +483,7 @@ private:
     return hasGraphicsQueue;
   }
 
-  uint32_t getGraphicsQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
+  static uint32_t getGraphicsQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
     std::optional<uint32_t> graphicsQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
@@ -1433,6 +1439,42 @@ private:
     }
   }
 
+  static void createCommandPool(VkPhysicalDevice physicalDevice,
+                                VkDevice logicalDevice,
+                                VkCommandPool &commandPool) {
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = getGraphicsQueueFamilyIndex(physicalDevice);
+
+    if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to create command pool!");
+    } else {
+      std::cout << "Created command pool for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void createCommandBuffer(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  VkCommandPool commandPool,
+                                  VkCommandBuffer &commandBuffer) {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to allocate command buffers!");
+    } else {
+      std::cout << "Created command buffers for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -1479,6 +1521,12 @@ private:
         presentableSwapChainImageViews, presentableRenderPass,
         presentableSwapChainExtent, presentableSwapChainFrameBuffers);
 
+    createCommandPool(presentablePhysicalDevice, presentableLogicalDevice,
+                      presentableCommandPool);
+
+    createCommandBuffer(presentablePhysicalDevice, presentableLogicalDevice,
+                        presentableCommandPool, presentableCommandBuffer);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
@@ -1491,6 +1539,9 @@ private:
     unpresentableRenderPasses.resize(unpresentablePhysicalDevices.size());
     unpresentableGraphicsPipelines.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceFrameBuffers.resize(unpresentablePhysicalDevices.size());
+
+    unpresentableCommandPools.resize(unpresentablePhysicalDevices.size());
+    unpresentableCommandBuffers.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1532,6 +1583,14 @@ private:
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceImageViews[i], unpresentableRenderPasses[i],
           presentableSwapChainExtent, unpresentableDeviceFrameBuffers[i]);
+
+      createCommandPool(unpresentablePhysicalDevices[i],
+                        unpresentableLogicalDevices[i],
+                        unpresentableCommandPools[i]);
+
+      createCommandBuffer(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableCommandPools[i], unpresentableCommandBuffers[i]);
     }
   }
 
@@ -1544,6 +1603,9 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkDestroyCommandPool(unpresentableLogicalDevices[i],
+                           unpresentableCommandPools[i], nullptr);
+
       vkDestroyFramebuffer(unpresentableLogicalDevices[i],
                            unpresentableDeviceFrameBuffers[i], nullptr);
 
@@ -1565,6 +1627,9 @@ private:
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    vkDestroyCommandPool(presentableLogicalDevice, presentableCommandPool,
+                         nullptr);
 
     destroyFrameBuffersForPresentation(presentableLogicalDevice,
                                        presentableSwapChainFrameBuffers);
