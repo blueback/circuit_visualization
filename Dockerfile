@@ -108,7 +108,10 @@ RUN apt-get -y install mesa-vulkan-drivers
 
 RUN apt-get -y install vulkan-tools
 RUN apt-get -y install libvulkan-dev
-RUN apt-get -y install vulkan-validationlayers-dev spirv-tools
+RUN apt-get -y install spirv-tools
+RUN apt-get -y install vulkan-validationlayers-dev
+# Following for validation layer works on some environments
+#RUN apt-get -y install vulkan-validationlayers
 
 # Install GLFW for windowing {
 # Install XFree86-VidModeExtension {
