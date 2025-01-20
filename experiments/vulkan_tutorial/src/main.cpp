@@ -1264,6 +1264,9 @@ private:
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
+    // TODO: can these dependencies be also needed for dependencies between
+    // render and copy to host visible buffers in
+    // recordCommandBufferForUnpresentableDevice
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
