@@ -1633,6 +1633,93 @@ private:
     }
   }
 
+  static void recordCommandBufferForCopyingFromBuffer(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkCommandBuffer commandBuffer, VkImage image, VkExtent2D extent,
+      VkBuffer stagingBuffer) {
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;                  // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+
+      throw std::runtime_error("failed to begin recording command buffer!");
+    } else {
+      std::cout << "Begin recording command buffer for copying for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    VkImageMemoryBarrier barrierBeforeCopy{};
+    barrierBeforeCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierBeforeCopy.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrierBeforeCopy.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierBeforeCopy.srcQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
+    barrierBeforeCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierBeforeCopy.image = image;
+    barrierBeforeCopy.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrierBeforeCopy.subresourceRange.baseMipLevel = 0;
+    barrierBeforeCopy.subresourceRange.levelCount = 1;
+    barrierBeforeCopy.subresourceRange.baseArrayLayer = 0;
+    barrierBeforeCopy.subresourceRange.layerCount = 1;
+
+    barrierBeforeCopy.srcAccessMask = 0; // No access needed before transition
+    barrierBeforeCopy.dstAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT; // for transfer operation
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierBeforeCopy);
+
+    VkImageSubresourceLayers subresource{};
+    subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource.mipLevel = 0;
+    subresource.baseArrayLayer = 0;
+    subresource.layerCount = 1;
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource = subresource;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {extent.width, extent.height, 1};
+
+    vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    VkImageMemoryBarrier barrierAfterCopy{};
+    barrierAfterCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierAfterCopy.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierAfterCopy.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrierAfterCopy.srcQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
+    barrierAfterCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierAfterCopy.image = image;
+    barrierAfterCopy.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrierAfterCopy.subresourceRange.baseMipLevel = 0;
+    barrierAfterCopy.subresourceRange.levelCount = 1;
+    barrierAfterCopy.subresourceRange.baseArrayLayer = 0;
+    barrierAfterCopy.subresourceRange.layerCount = 1;
+
+    barrierAfterCopy.srcAccessMask = 0; // No access needed before transition
+    barrierAfterCopy.dstAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT; // for transfer operation
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierAfterCopy);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+      throw std::runtime_error("failed to record command buffer!");
+    } else {
+      std::cout << "End recording command buffer for copying for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
   static void recordCommandBufferForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
       VkImage image, VkRenderPass renderPass, VkFramebuffer frameBuffer,
@@ -2084,93 +2171,6 @@ private:
     presentInfo.pResults = nullptr; // Optional
 
     vkQueuePresentKHR(presentQueue, &presentInfo);
-  }
-
-  static void recordCommandBufferForCopyingFromBuffer(
-      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-      VkCommandBuffer commandBuffer, VkImage image, VkExtent2D extent,
-      VkBuffer stagingBuffer) {
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;                  // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-
-      throw std::runtime_error("failed to begin recording command buffer!");
-    } else {
-      std::cout << "Begin recording command buffer for copying for Device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
-
-    VkImageMemoryBarrier barrierBeforeCopy{};
-    barrierBeforeCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrierBeforeCopy.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrierBeforeCopy.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrierBeforeCopy.srcQueueFamilyIndex =
-        VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
-    barrierBeforeCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrierBeforeCopy.image = image;
-    barrierBeforeCopy.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrierBeforeCopy.subresourceRange.baseMipLevel = 0;
-    barrierBeforeCopy.subresourceRange.levelCount = 1;
-    barrierBeforeCopy.subresourceRange.baseArrayLayer = 0;
-    barrierBeforeCopy.subresourceRange.layerCount = 1;
-
-    barrierBeforeCopy.srcAccessMask = 0; // No access needed before transition
-    barrierBeforeCopy.dstAccessMask =
-        VK_ACCESS_TRANSFER_WRITE_BIT; // for transfer operation
-
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrierBeforeCopy);
-
-    VkImageSubresourceLayers subresource{};
-    subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    subresource.mipLevel = 0;
-    subresource.baseArrayLayer = 0;
-    subresource.layerCount = 1;
-
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource = subresource;
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {extent.width, extent.height, 1};
-
-    vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-    VkImageMemoryBarrier barrierAfterCopy{};
-    barrierAfterCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrierAfterCopy.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrierAfterCopy.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    barrierAfterCopy.srcQueueFamilyIndex =
-        VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
-    barrierAfterCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrierAfterCopy.image = image;
-    barrierAfterCopy.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrierAfterCopy.subresourceRange.baseMipLevel = 0;
-    barrierAfterCopy.subresourceRange.levelCount = 1;
-    barrierAfterCopy.subresourceRange.baseArrayLayer = 0;
-    barrierAfterCopy.subresourceRange.layerCount = 1;
-
-    barrierAfterCopy.srcAccessMask = 0; // No access needed before transition
-    barrierAfterCopy.dstAccessMask =
-        VK_ACCESS_TRANSFER_WRITE_BIT; // for transfer operation
-
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrierAfterCopy);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-      throw std::runtime_error("failed to record command buffer!");
-    } else {
-      std::cout << "End recording command buffer for copying for Device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
   }
 
   void
