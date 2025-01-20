@@ -999,7 +999,8 @@ private:
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageUsage =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     // createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
@@ -2100,10 +2101,216 @@ private:
     }
   }
 
+  void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+                 VkQueue graphicsQueue, VkQueue presentQueue,
+                 VkSwapchainKHR swapChain, VkExtent2D extent,
+                 VkRenderPass renderPass, VkPipeline graphicsPipeline,
+                 std::vector<VkFramebuffer> &frameBuffers,
+                 VkCommandBuffer commandBuffer,
+                 VkSemaphore imageAvailableSemaphore,
+                 VkSemaphore renderingFinishedSemaphore, VkFence inFlightFence,
+                 const bool isDynamicViewPortAndScissor) {
+
+    vkWaitForFences(logicalDevice, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(logicalDevice, 1, &inFlightFence);
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(logicalDevice, swapChain, UINT64_MAX,
+                          imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    vkResetCommandBuffer(commandBuffer, 0);
+
+    recordCommandBufferForPresentation(physicalDevice, commandBuffer,
+                                       imageIndex, renderPass, frameBuffers,
+                                       extent, graphicsPipeline, false);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+    VkPipelineStageFlags waitStages[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    VkSemaphore signalSemaphores[] = {renderingFinishedSemaphore};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to submit draw command buffer!");
+    } else {
+      std::cout << "Submitted draw command buffer for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = {swapChain};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(presentQueue, &presentInfo);
+  }
+
+  void
+  drawFrame2(VkPhysicalDevice physicalDevice_unp, VkDevice logicalDevice_unp,
+             VkQueue graphicsQueue_unp, VkImage image_unp, VkExtent2D extent,
+             VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
+             VkFramebuffer frameBuffer_unp, VkCommandBuffer commandBuffer_unp,
+             VkSemaphore renderingFinishedSemaphore_unp,
+             VkFence interDeviceFence_unp, VkBuffer stagingBuffer_unp,
+             void *stagingBufferData_unp, VkPhysicalDevice physicalDevice_p,
+             VkDevice logicalDevice_p, VkQueue graphicsQueue_p,
+             VkQueue presentQueue_p, VkSwapchainKHR swapChain_p,
+             std::vector<VkImage> &swapChainImages_p,
+             VkCommandBuffer copyCommandBuffer_p,
+             VkSemaphore imageAvailableSemaphore_p,
+             VkSemaphore copyingFinishedSemaphore_p, VkFence inFlightFence_p,
+             VkBuffer stagingBuffer_p, void *stagingBufferData_p,
+             size_t stagingBufferSize, const bool isDynamicViewPortAndScissor) {
+
+    vkWaitForFences(logicalDevice_p, 1, &inFlightFence_p, VK_TRUE, UINT64_MAX);
+    vkResetFences(logicalDevice_p, 1, &inFlightFence_p);
+
+    vkResetCommandBuffer(commandBuffer_unp, 0);
+
+    recordCommandBufferForUnpresentableDevice(
+        physicalDevice_unp, commandBuffer_unp, image_unp, renderPass_unp,
+        frameBuffer_unp, extent, graphicsPipeline_unp, stagingBuffer_unp,
+        false);
+
+    VkSubmitInfo submitInfo_unp{};
+    submitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo_unp.waitSemaphoreCount = 0;
+    submitInfo_unp.pWaitSemaphores = nullptr;   // Optional
+    submitInfo_unp.pWaitDstStageMask = nullptr; // Optional
+    submitInfo_unp.commandBufferCount = 1;
+    submitInfo_unp.pCommandBuffers = &commandBuffer_unp;
+    submitInfo_unp.signalSemaphoreCount = 0;
+    submitInfo_unp.pSignalSemaphores = nullptr; // Optional
+
+    if (vkQueueSubmit(graphicsQueue_unp, 1, &submitInfo_unp,
+                      interDeviceFence_unp) != VK_SUCCESS) {
+      throw std::runtime_error("failed to submit draw command buffer!");
+    } else {
+      std::cout << "Submitted draw and copy command buffer for device \""
+                << getPhysicalDeviceName(physicalDevice_unp) << "\""
+                << std::endl;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    ///                     END copy to host visible buffer
+    //////////////////////////////////////////////////////////////////////
+
+    vkWaitForFences(logicalDevice_unp, 1, &interDeviceFence_unp, VK_TRUE,
+                    UINT64_MAX);
+    vkResetFences(logicalDevice_unp, 1, &interDeviceFence_unp);
+
+    //////////////////////////////////////////////////////////////////////
+    ///                   START copy to presenter visible buffer
+    //////////////////////////////////////////////////////////////////////
+
+    memcpy(stagingBufferData_p, stagingBufferData_unp, stagingBufferSize);
+
+    //////////////////////////////////////////////////////////////////////
+    ///                    END copy to presenter visible buffer
+    //////////////////////////////////////////////////////////////////////
+
+    uint32_t imageIndex_p;
+    vkAcquireNextImageKHR(logicalDevice_p, swapChain_p, UINT64_MAX,
+                          imageAvailableSemaphore_p, VK_NULL_HANDLE,
+                          &imageIndex_p);
+
+    vkResetCommandBuffer(copyCommandBuffer_p, 0);
+
+    recordCommandBufferForCopyingFromBuffer(
+        physicalDevice_p, logicalDevice_p, copyCommandBuffer_p,
+        swapChainImages_p[imageIndex_p], extent, stagingBuffer_p);
+
+    VkSubmitInfo copySubmitInfo_p{};
+    copySubmitInfo_p.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkSemaphore copyWaitSemaphores_p[] = {imageAvailableSemaphore_p};
+    VkPipelineStageFlags copyWaitStages_p[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+    copySubmitInfo_p.waitSemaphoreCount = 1;
+    copySubmitInfo_p.pWaitSemaphores = copyWaitSemaphores_p;
+    copySubmitInfo_p.pWaitDstStageMask = copyWaitStages_p;
+    copySubmitInfo_p.commandBufferCount = 1;
+    copySubmitInfo_p.pCommandBuffers = &copyCommandBuffer_p;
+    VkSemaphore copySignalSemaphores_p[] = {copyingFinishedSemaphore_p};
+    copySubmitInfo_p.signalSemaphoreCount = 1;
+    copySubmitInfo_p.pSignalSemaphores = copySignalSemaphores_p;
+
+    if (vkQueueSubmit(graphicsQueue_p, 1, &copySubmitInfo_p, inFlightFence_p) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to submit draw command buffer!");
+    } else {
+      std::cout << "Submitted copy command buffer for device \""
+                << getPhysicalDeviceName(physicalDevice_p) << "\"" << std::endl;
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = copySignalSemaphores_p;
+
+    VkSwapchainKHR swapChains[] = {swapChain_p};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex_p;
+
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(presentQueue_p, &presentInfo);
+  }
+
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
+#if 0
+      drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
+                graphicsQueueForPresentable, presentationQueueForPresentable,
+                presentableSwapChain, presentableSwapChainExtent,
+                presentableRenderPass, presentableGraphicsPipeline,
+                presentableSwapChainFrameBuffers, presentableCommandBuffer,
+                presentableImageAvailableSemaphore,
+                presentableRenderingFinishedSemaphore, presentableInFlightFence,
+                false);
+#else
+      drawFrame2(
+          unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
+          graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
+          presentableSwapChainExtent, unpresentableRenderPasses[0],
+          unpresentableGraphicsPipelines[0], unpresentableDeviceFrameBuffers[0],
+          unpresentableCommandBuffers[0],
+          unpresentableRenderingFinishedSemaphores[0],
+          unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
+          unpresentableStagingBuffersData[0], presentablePhysicalDevice,
+          presentableLogicalDevice, graphicsQueueForPresentable,
+          presentationQueueForPresentable, presentableSwapChain,
+          presentableSwapChainImages, presentableCommandBuffer,
+          presentableImageAvailableSemaphore,
+          presentableRenderingFinishedSemaphore, // using this for
+                                                 // copyFinishSemaphore
+          presentableInFlightFence, presentableStagingBuffer,
+          presentableStagingBufferData, stagingBufferSize, false);
+#endif
     }
+
+    vkQueueWaitIdle(graphicsQueueForPresentable);
+    vkQueueWaitIdle(graphicsQueuesForUnpresentable[0]);
+    vkQueueWaitIdle(presentationQueueForPresentable);
+    vkDeviceWaitIdle(presentableLogicalDevice);
+    vkDeviceWaitIdle(unpresentableLogicalDevices[0]);
   }
 
   void cleanup() {
