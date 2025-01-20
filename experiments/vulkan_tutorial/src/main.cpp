@@ -96,6 +96,10 @@ private:
   VkCommandPool presentableCommandPool;
   VkCommandBuffer presentableCommandBuffer;
 
+  VkSemaphore presentableImageAvailableSemaphore;
+  VkSemaphore presentableRenderingFinishedSemaphore;
+  VkFence presentableInFlightFence;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
@@ -108,6 +112,9 @@ private:
 
   std::vector<VkCommandPool> unpresentableCommandPools;
   std::vector<VkCommandBuffer> unpresentableCommandBuffers;
+
+  std::vector<VkSemaphore> unpresentableRenderingFinishedSemaphores;
+  std::vector<VkFence> unpresentableInterDeviceFences;
 
 private:
   void initWindow() {
@@ -1773,6 +1780,76 @@ private:
     }
   }
 
+  static void createSemaphore(VkPhysicalDevice physicalDevice,
+                              VkDevice logicalDevice, VkSemaphore &semaphore) {
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &semaphore) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to create semaphore!");
+    } else {
+      std::cout << "Created semaphore for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void createFence(VkPhysicalDevice physicalDevice,
+                          VkDevice logicalDevice, VkFenceCreateFlags fenceFlags,
+                          VkFence &fence) {
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = fenceFlags;
+
+    if (vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("failed to create fence!");
+    } else {
+      std::cout << "Created fence for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  void createSyncObjectsForPresentation(VkPhysicalDevice physicalDevice,
+                                        VkDevice logicalDevice,
+                                        VkSemaphore &imageAvailableSemaphore,
+                                        VkSemaphore &renderingFinishedSemaphore,
+                                        VkFence &inFlightFence) {
+
+    createSemaphore(physicalDevice, logicalDevice, imageAvailableSemaphore);
+    createSemaphore(physicalDevice, logicalDevice, renderingFinishedSemaphore);
+
+    createFence(physicalDevice, logicalDevice, VK_FENCE_CREATE_SIGNALED_BIT,
+                inFlightFence);
+  }
+
+  void destroySyncObjectsForPresentation(VkDevice logicalDevice,
+                                         VkSemaphore imageAvailableSemaphore,
+                                         VkSemaphore renderingFinishedSemaphore,
+                                         VkFence inFlightFence) {
+
+    vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
+    vkDestroySemaphore(logicalDevice, renderingFinishedSemaphore, nullptr);
+    vkDestroyFence(logicalDevice, inFlightFence, nullptr);
+  }
+
+  void createSyncObjectsForUnpresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkSemaphore &renderingFinishedSemaphore, VkFence &InterDeviceFence) {
+
+    createSemaphore(physicalDevice, logicalDevice, renderingFinishedSemaphore);
+
+    createFence(physicalDevice, logicalDevice, 0, InterDeviceFence);
+  }
+
+  void destroySyncObjectsForUnpresentableDevice(
+      VkDevice logicalDevice, VkSemaphore renderingFinishedSemaphore,
+      VkFence InterDeviceFence) {
+
+    vkDestroySemaphore(logicalDevice, renderingFinishedSemaphore, nullptr);
+    vkDestroyFence(logicalDevice, InterDeviceFence, nullptr);
+  }
+
   void initVulkan() {
     createInstance();
 
@@ -1826,6 +1903,11 @@ private:
     createCommandBuffer(presentablePhysicalDevice, presentableLogicalDevice,
                         presentableCommandPool, presentableCommandBuffer);
 
+    createSyncObjectsForPresentation(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableImageAvailableSemaphore,
+        presentableRenderingFinishedSemaphore, presentableInFlightFence);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
@@ -1841,6 +1923,10 @@ private:
 
     unpresentableCommandPools.resize(unpresentablePhysicalDevices.size());
     unpresentableCommandBuffers.resize(unpresentablePhysicalDevices.size());
+
+    unpresentableRenderingFinishedSemaphores.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableInterDeviceFences.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1891,6 +1977,11 @@ private:
       createCommandBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableCommandPools[i], unpresentableCommandBuffers[i]);
+
+      createSyncObjectsForUnpresentableDevice(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableRenderingFinishedSemaphores[i],
+          unpresentableInterDeviceFences[i]);
     }
   }
 
@@ -1903,6 +1994,11 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      destroySyncObjectsForUnpresentableDevice(
+          unpresentableLogicalDevices[i],
+          unpresentableRenderingFinishedSemaphores[i],
+          unpresentableInterDeviceFences[i]);
+
       vkDestroyCommandPool(unpresentableLogicalDevices[i],
                            unpresentableCommandPools[i], nullptr);
 
@@ -1927,6 +2023,10 @@ private:
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    destroySyncObjectsForPresentation(
+        presentableLogicalDevice, presentableImageAvailableSemaphore,
+        presentableRenderingFinishedSemaphore, presentableInFlightFence);
 
     vkDestroyCommandPool(presentableLogicalDevice, presentableCommandPool,
                          nullptr);
