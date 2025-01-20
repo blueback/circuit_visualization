@@ -100,6 +100,11 @@ private:
   VkSemaphore presentableRenderingFinishedSemaphore;
   VkFence presentableInFlightFence;
 
+  VkBuffer presentableStagingBuffer;
+  VkDeviceMemory presentableStagingBufferMemory;
+  void *presentableStagingBufferData;
+  size_t stagingBufferSize;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
@@ -115,6 +120,10 @@ private:
 
   std::vector<VkSemaphore> unpresentableRenderingFinishedSemaphores;
   std::vector<VkFence> unpresentableInterDeviceFences;
+
+  std::vector<VkBuffer> unpresentableStagingBuffers;
+  std::vector<VkDeviceMemory> unpresentableStagingBuffersMemory;
+  std::vector<void *> unpresentableStagingBuffersData;
 
 private:
   void initWindow() {
@@ -1833,6 +1842,82 @@ private:
     vkDestroyFence(logicalDevice, inFlightFence, nullptr);
   }
 
+  void createStagingBuffer(VkPhysicalDevice physicalDevice,
+                           VkDevice logicalDevice, VkExtent2D extent,
+                           VkBuffer &stagingBuffer,
+                           VkDeviceMemory &stagingBufferMemory,
+                           void *&stagingBufferData,
+                           VkBufferUsageFlags bufferFlags,
+                           const bool isPresentableStagingBufferSizeSet,
+                           size_t &stagingBufferSize) {
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = extent.width * extent.height * 4; // 4 for (RGBA)
+    bufferInfo.usage = bufferFlags;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &stagingBuffer);
+
+    VkMemoryRequirements bufferMemRequirements;
+    vkGetBufferMemoryRequirements(logicalDevice, stagingBuffer,
+                                  &bufferMemRequirements);
+    assert(bufferInfo.size == bufferMemRequirements.size);
+
+    VkMemoryAllocateInfo bufferAllocInfo{};
+    bufferAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    bufferAllocInfo.allocationSize = bufferMemRequirements.size;
+    bufferAllocInfo.memoryTypeIndex =
+        findMemoryType(bufferMemRequirements.memoryTypeBits,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       physicalDevice);
+
+    vkAllocateMemory(logicalDevice, &bufferAllocInfo, nullptr,
+                     &stagingBufferMemory);
+    vkBindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory, 0);
+
+    vkMapMemory(logicalDevice, stagingBufferMemory, 0,
+                bufferMemRequirements.size, 0, &stagingBufferData);
+
+    if (isPresentableStagingBufferSizeSet) {
+      assert(stagingBufferSize == bufferMemRequirements.size);
+    } else {
+      stagingBufferSize = bufferMemRequirements.size;
+    }
+  }
+
+  void createStagingBufferForPresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkExtent2D extent, VkBuffer &stagingBuffer,
+      VkDeviceMemory &stagingBufferMemory, void *&stagingBufferData,
+      size_t &stagingBufferSize) {
+
+    createStagingBuffer(physicalDevice, logicalDevice, extent, stagingBuffer,
+                        stagingBufferMemory, stagingBufferData,
+                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, false,
+                        stagingBufferSize);
+  }
+
+  void createStagingBufferForUnpresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkExtent2D extent, VkBuffer &stagingBuffer,
+      VkDeviceMemory &stagingBufferMemory, void *&stagingBufferData,
+      const bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
+
+    createStagingBuffer(physicalDevice, logicalDevice, extent, stagingBuffer,
+                        stagingBufferMemory, stagingBufferData,
+                        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                        isPresentableStagingBufferSizeSet, stagingBufferSize);
+  }
+
+  void destroyStagingBufferAndMemory(VkDevice logicalDevice,
+                                     VkBuffer stagingBuffer,
+                                     VkDeviceMemory stagingBufferMemory) {
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+  }
+
   void createSyncObjectsForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       VkSemaphore &renderingFinishedSemaphore, VkFence &InterDeviceFence) {
@@ -1908,6 +1993,12 @@ private:
         presentableImageAvailableSemaphore,
         presentableRenderingFinishedSemaphore, presentableInFlightFence);
 
+    createStagingBufferForPresentableDevice(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableSwapChainExtent, presentableStagingBuffer,
+        presentableStagingBufferMemory, presentableStagingBufferData,
+        stagingBufferSize);
+
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
@@ -1927,6 +2018,11 @@ private:
     unpresentableRenderingFinishedSemaphores.resize(
         unpresentablePhysicalDevices.size());
     unpresentableInterDeviceFences.resize(unpresentablePhysicalDevices.size());
+
+    unpresentableStagingBuffers.resize(unpresentablePhysicalDevices.size());
+    unpresentableStagingBuffersMemory.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableStagingBuffersData.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
@@ -1982,6 +2078,12 @@ private:
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableRenderingFinishedSemaphores[i],
           unpresentableInterDeviceFences[i]);
+
+      createStagingBufferForUnpresentableDevice(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          presentableSwapChainExtent, unpresentableStagingBuffers[i],
+          unpresentableStagingBuffersMemory[i],
+          unpresentableStagingBuffersData[i], true, stagingBufferSize);
     }
   }
 
@@ -1994,6 +2096,10 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      destroyStagingBufferAndMemory(unpresentableLogicalDevices[i],
+                                    unpresentableStagingBuffers[i],
+                                    unpresentableStagingBuffersMemory[i]);
+
       destroySyncObjectsForUnpresentableDevice(
           unpresentableLogicalDevices[i],
           unpresentableRenderingFinishedSemaphores[i],
@@ -2023,6 +2129,10 @@ private:
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableDeviceImages[i], nullptr);
     }
+
+    destroyStagingBufferAndMemory(presentableLogicalDevice,
+                                  presentableStagingBuffer,
+                                  presentableStagingBufferMemory);
 
     destroySyncObjectsForPresentation(
         presentableLogicalDevice, presentableImageAvailableSemaphore,
