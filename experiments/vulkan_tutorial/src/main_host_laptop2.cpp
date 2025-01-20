@@ -2307,8 +2307,10 @@ private:
     }
 
     vkQueueWaitIdle(graphicsQueueForPresentable);
+    vkQueueWaitIdle(graphicsQueuesForUnpresentable[0]);
     vkQueueWaitIdle(presentationQueueForPresentable);
     vkDeviceWaitIdle(presentableLogicalDevice);
+    vkDeviceWaitIdle(unpresentableLogicalDevices[0]);
   }
 
   void cleanup() {
