@@ -662,6 +662,7 @@ private:
   }
 
   void pickPhysicalDevice(VkSurfaceKHR windowSurface) {
+    presentablePhysicalDevice = VK_NULL_HANDLE;
     forEachAvailablePhysicalDevice([&](VkPhysicalDevice device) {
       std::cout << "Probing Device :- " << getPhysicalDeviceName(device)
                 << "..." << std::endl;
@@ -676,7 +677,8 @@ private:
 
       if (isGeometryShaderSupportedByPhysicalDevice(device) &&
           isGraphicsQueueSupportedByPhysicalDevice(device)) {
-        if (isPhysicalDevicePresentable(device, windowSurface) &&
+        if (!presentablePhysicalDevice &&
+            isPhysicalDevicePresentable(device, windowSurface) &&
             isSwapChainAdequateForPresentation(device, windowSurface)) {
           std::cout << "    device can also render ON-screen" << std::endl;
           presentablePhysicalDevice = device;
