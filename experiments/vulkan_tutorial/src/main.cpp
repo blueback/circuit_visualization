@@ -2279,7 +2279,7 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#if 0
+#if 1
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
                 presentableSwapChain, presentableSwapChainExtent,
@@ -2310,10 +2310,13 @@ private:
     }
 
     vkQueueWaitIdle(graphicsQueueForPresentable);
-    vkQueueWaitIdle(graphicsQueuesForUnpresentable[0]);
     vkQueueWaitIdle(presentationQueueForPresentable);
     vkDeviceWaitIdle(presentableLogicalDevice);
-    vkDeviceWaitIdle(unpresentableLogicalDevices[0]);
+
+    for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
+      vkQueueWaitIdle(graphicsQueuesForUnpresentable[i]);
+      vkDeviceWaitIdle(unpresentableLogicalDevices[i]);
+    }
   }
 
   void cleanup() {
