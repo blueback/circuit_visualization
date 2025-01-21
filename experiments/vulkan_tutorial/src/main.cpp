@@ -1197,6 +1197,7 @@ private:
     for (auto imageView : imageViews) {
       vkDestroyImageView(logicalDevice, imageView, nullptr);
     }
+    imageViews.clear();
   }
 
   static std::vector<char> readFile(const std::string &filename) {
@@ -1536,6 +1537,7 @@ private:
     for (auto frameBuffer : frameBuffers) {
       vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
     }
+    frameBuffers.clear();
   }
 
   static void createCommandPool(VkPhysicalDevice physicalDevice,
@@ -2416,6 +2418,20 @@ private:
     }
   }
 
+  static void cleanupSwapChainOfPresentableDevice(
+      VkDevice logicalDevice, VkSwapchainKHR swapChain,
+      std::vector<VkImage> &swapChainImages,
+      std::vector<VkFramebuffer> &swapChainFrameBuffers,
+      std::vector<VkImageView> &swapChainImageViews) {
+    destroyFrameBuffersForPresentation(logicalDevice, swapChainFrameBuffers);
+
+    destroyImageViewsForPresentation(logicalDevice, swapChainImageViews);
+
+    vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
+
+    swapChainImages.clear();
+  }
+
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
@@ -2464,8 +2480,10 @@ private:
     vkDestroyCommandPool(presentableLogicalDevice, presentableCommandPool,
                          nullptr);
 
-    destroyFrameBuffersForPresentation(presentableLogicalDevice,
-                                       presentableSwapChainFrameBuffers);
+    cleanupSwapChainOfPresentableDevice(
+        presentableLogicalDevice, presentableSwapChain,
+        presentableSwapChainImages, presentableSwapChainFrameBuffers,
+        presentableSwapChainImageViews);
 
     vkDestroyPipeline(presentableLogicalDevice, presentableGraphicsPipeline,
                       nullptr);
@@ -2475,12 +2493,6 @@ private:
 
     vkDestroyRenderPass(presentableLogicalDevice, presentableRenderPass,
                         nullptr);
-
-    destroyImageViewsForPresentation(presentableLogicalDevice,
-                                     presentableSwapChainImageViews);
-
-    vkDestroySwapchainKHR(presentableLogicalDevice, presentableSwapChain,
-                          nullptr);
 
     vkDestroyDevice(presentableLogicalDevice, nullptr);
     for (auto const &logicalDevice : unpresentableLogicalDevices) {
