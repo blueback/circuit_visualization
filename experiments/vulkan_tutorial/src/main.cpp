@@ -1191,8 +1191,9 @@ private:
     }
   }
 
-  void destroyImageViewsForPresentation(VkDevice logicalDevice,
-                                        std::vector<VkImageView> &imageViews) {
+  static void
+  destroyImageViewsForPresentation(VkDevice logicalDevice,
+                                   std::vector<VkImageView> &imageViews) {
     for (auto imageView : imageViews) {
       vkDestroyImageView(logicalDevice, imageView, nullptr);
     }
