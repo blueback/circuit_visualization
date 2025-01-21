@@ -1132,8 +1132,8 @@ private:
     }
   }
 
-  VkImageViewCreateInfo fillImageViewCreateInfo(VkImage image,
-                                                VkFormat format) {
+  static VkImageViewCreateInfo fillImageViewCreateInfo(VkImage image,
+                                                       VkFormat format) {
     VkImageViewCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     createInfo.image = image;
@@ -1154,11 +1154,11 @@ private:
     return createInfo;
   }
 
-  void createImageViewsForPresentation(std::vector<VkImage> &images,
-                                       VkFormat format,
-                                       VkPhysicalDevice physicalDevice,
-                                       VkDevice logicalDevice,
-                                       std::vector<VkImageView> &imageViews) {
+  static void
+  createImageViewsForPresentation(std::vector<VkImage> &images, VkFormat format,
+                                  VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  std::vector<VkImageView> &imageViews) {
     imageViews.resize(images.size());
     for (size_t i = 0; i < images.size(); i++) {
       VkImageViewCreateInfo createInfo =
