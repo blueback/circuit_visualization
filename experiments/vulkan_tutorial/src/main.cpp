@@ -2381,7 +2381,7 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#if 0
+#if 1
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
                 window, presentableWindowSurface, presentableSwapChain,
