@@ -24,6 +24,8 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
+
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
     const VkAllocationCallbacks *pAllocator,
@@ -2063,8 +2065,9 @@ private:
 
     createGraphicsPipeline(
         presentablePhysicalDevice, presentableLogicalDevice,
-        presentableSwapChainExtent, false, presentableRenderPass,
-        presentableGraphicsPipelineLayout, presentableGraphicsPipeline);
+        presentableSwapChainExtent, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS,
+        presentableRenderPass, presentableGraphicsPipelineLayout,
+        presentableGraphicsPipeline);
 
     createFrameBuffersForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice,
@@ -2146,8 +2149,8 @@ private:
 
       createGraphicsPipeline(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          presentableSwapChainExtent, false, unpresentableRenderPasses[i],
-          unpresentableGraphicsPipelineLayouts[i],
+          presentableSwapChainExtent, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS,
+          unpresentableRenderPasses[i], unpresentableGraphicsPipelineLayouts[i],
           unpresentableGraphicsPipelines[i]);
 
       createFrameBufferForUnpresentableDevice(
@@ -2386,7 +2389,8 @@ private:
                 presentableGraphicsPipeline, presentableCommandBuffers,
                 presentableImageAvailableSemaphores,
                 presentableRenderingFinishedSemaphores,
-                presentableInFlightFences, false);
+                presentableInFlightFences,
+                DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
 #else
       drawFrame2(
           unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
