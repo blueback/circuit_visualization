@@ -2252,28 +2252,30 @@ private:
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
 
-  void drawFrame2(VkPhysicalDevice physicalDevice_unp,
-                  VkDevice logicalDevice_unp, VkQueue graphicsQueue_unp,
-                  VkImage image_unp, VkExtent2D extent,
-                  VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
-                  VkFramebuffer frameBuffer_unp,
-                  std::vector<VkCommandBuffer> &commandBuffers_unp,
-                  std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
-                  std::vector<VkFence> &interDeviceFences_unp,
-                  std::vector<VkBuffer> stagingBuffers_unp,
-                  std::vector<void *> stagingBufferData_unp,
-                  VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
-                  VkQueue graphicsQueue_p, VkQueue presentQueue_p,
-                  VkSwapchainKHR swapChain_p,
-                  std::vector<VkImage> &swapChainImages_p,
-                  std::vector<VkCommandBuffer> &copyCommandBuffers_p,
-                  std::vector<VkSemaphore> &imageAvailableSemaphores_p,
-                  std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
-                  std::vector<VkFence> &inFlightFences_p,
-                  std::vector<VkBuffer> stagingBuffers_p,
-                  std::vector<void *> stagingBufferData_p,
-                  size_t stagingBufferSize,
-                  const bool isDynamicViewPortAndScissor) {
+  void drawFrame2(
+      VkPhysicalDevice physicalDevice_unp, VkDevice logicalDevice_unp,
+      VkQueue graphicsQueue_unp, VkImage image_unp, VkRenderPass renderPass_unp,
+      VkPipeline graphicsPipeline_unp, VkFramebuffer frameBuffer_unp,
+      std::vector<VkCommandBuffer> &commandBuffers_unp,
+      std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
+      std::vector<VkFence> &interDeviceFences_unp,
+      std::vector<VkBuffer> stagingBuffers_unp,
+      std::vector<void *> stagingBufferData_unp,
+      VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+      VkQueue graphicsQueue_p, VkQueue presentQueue_p, GLFWwindow *window,
+      VkSurfaceKHR windowSurface_p, VkSwapchainKHR swapChain_p,
+      std::vector<VkImage> &swapChainImages_p,
+      std::vector<VkImageView> &swapChainImageViews_p,
+      VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
+      VkRenderPass renderPass_p,
+      std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
+      std::vector<VkCommandBuffer> &copyCommandBuffers_p,
+      std::vector<VkSemaphore> &imageAvailableSemaphores_p,
+      std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
+      std::vector<VkFence> &inFlightFences_p,
+      std::vector<VkBuffer> stagingBuffers_p,
+      std::vector<void *> stagingBufferData_p, size_t stagingBufferSize,
+      const bool isDynamicViewPortAndScissor) {
 
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
@@ -2379,7 +2381,7 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#if 1
+#if 0
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
                 window, presentableWindowSurface, presentableSwapChain,
@@ -2395,15 +2397,17 @@ private:
       drawFrame2(
           unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
           graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
-          presentableSwapChainExtent, unpresentableRenderPasses[0],
-          unpresentableGraphicsPipelines[0], unpresentableDeviceFrameBuffers[0],
-          unpresentableCommandBuffers[0],
+          unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
+          unpresentableDeviceFrameBuffers[0], unpresentableCommandBuffers[0],
           unpresentableRenderingFinishedSemaphores[0],
           unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
           unpresentableStagingBuffersData[0], presentablePhysicalDevice,
           presentableLogicalDevice, graphicsQueueForPresentable,
-          presentationQueueForPresentable, presentableSwapChain,
-          presentableSwapChainImages, presentableCommandBuffers,
+          presentationQueueForPresentable, window, presentableWindowSurface,
+          presentableSwapChain, presentableSwapChainImages,
+          presentableSwapChainImageViews, presentableSwapChainImageFormat,
+          presentableSwapChainExtent, presentableRenderPass,
+          presentableSwapChainFrameBuffers, presentableCommandBuffers,
           presentableImageAvailableSemaphores,
           presentableRenderingFinishedSemaphores, // using this for
                                                   // copyFinishSemaphore
