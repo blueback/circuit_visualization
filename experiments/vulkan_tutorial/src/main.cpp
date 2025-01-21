@@ -2358,6 +2358,8 @@ private:
     presentInfo.pResults = nullptr; // Optional
 
     vkQueuePresentKHR(presentQueue_p, &presentInfo);
+
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
 
   void mainLoop() {
