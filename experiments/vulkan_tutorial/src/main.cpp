@@ -1369,10 +1369,10 @@ private:
 
     VkPipelineViewportStateCreateInfo viewportState{};
     VkPipelineDynamicStateCreateInfo dynamicState{};
-    if (isDynamicViewPortAndScissor) {
-      std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
-                                                   VK_DYNAMIC_STATE_SCISSOR};
+    std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
+                                                 VK_DYNAMIC_STATE_SCISSOR};
 
+    if (isDynamicViewPortAndScissor) {
       dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
       dynamicState.dynamicStateCount =
           static_cast<uint32_t>(dynamicStates.size());
@@ -2176,9 +2176,14 @@ private:
 
   void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                  VkQueue graphicsQueue, VkQueue presentQueue,
-                 VkSwapchainKHR swapChain, VkExtent2D extent,
-                 VkRenderPass renderPass, VkPipeline graphicsPipeline,
-                 std::vector<VkFramebuffer> &frameBuffers,
+                 GLFWwindow *window, VkSurfaceKHR windowSurface,
+                 VkSwapchainKHR &swapChain,
+                 std::vector<VkImage> &swapChainImages,
+                 std::vector<VkImageView> &swapChainImageViews,
+                 VkFormat &swapChainImageFormat, VkExtent2D &extent,
+                 VkRenderPass renderPass,
+                 std::vector<VkFramebuffer> &swapChainFrameBuffers,
+                 VkPipeline graphicsPipeline,
                  std::vector<VkCommandBuffer> commandBuffers,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
@@ -2198,7 +2203,8 @@ private:
 
     recordCommandBufferForPresentation(
         physicalDevice, commandBuffers[currentFrame], imageIndex, renderPass,
-        frameBuffers, extent, graphicsPipeline, false);
+        swapChainFrameBuffers, extent, graphicsPipeline,
+        isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2371,9 +2377,11 @@ private:
 #if 1
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
-                presentableSwapChain, presentableSwapChainExtent,
-                presentableRenderPass, presentableGraphicsPipeline,
-                presentableSwapChainFrameBuffers, presentableCommandBuffers,
+                window, presentableWindowSurface, presentableSwapChain,
+                presentableSwapChainImages, presentableSwapChainImageViews,
+                presentableSwapChainImageFormat, presentableSwapChainExtent,
+                presentableRenderPass, presentableSwapChainFrameBuffers,
+                presentableGraphicsPipeline, presentableCommandBuffers,
                 presentableImageAvailableSemaphores,
                 presentableRenderingFinishedSemaphores,
                 presentableInFlightFences, false);
