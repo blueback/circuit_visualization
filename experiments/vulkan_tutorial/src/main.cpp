@@ -770,8 +770,9 @@ private:
     std::vector<VkPresentModeKHR> presentMode;
   };
 
-  SwapChainSupportDetails querySwapChainDetails(VkPhysicalDevice physicalDevice,
-                                                VkSurfaceKHR windowSurface) {
+  static SwapChainSupportDetails
+  querySwapChainDetails(VkPhysicalDevice physicalDevice,
+                        VkSurfaceKHR windowSurface) {
     SwapChainSupportDetails details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, windowSurface,
@@ -817,7 +818,7 @@ private:
     return true;
   }
 
-  VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+  static VkSurfaceFormatKHR chooseSwapSurfaceFormat(
       const std::vector<VkSurfaceFormatKHR> &availableFormats) {
 
     for (const auto &availableFormat : availableFormats) {
@@ -830,7 +831,7 @@ private:
     return availableFormats[0];
   }
 
-  VkPresentModeKHR chooseSwapPresentMode(
+  static VkPresentModeKHR chooseSwapPresentMode(
       const std::vector<VkPresentModeKHR> availablePresentModes) {
 
     for (const auto &availablePresentMode : availablePresentModes) {
@@ -849,7 +850,9 @@ private:
     return VK_PRESENT_MODE_FIFO_KHR;
   }
 
-  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
+  static VkExtent2D
+  chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities,
+                   GLFWwindow *window) {
     if (capabilities.currentExtent.width !=
         std::numeric_limits<uint32_t>::max()) {
       return capabilities.currentExtent;
@@ -956,8 +959,9 @@ private:
     }
   }
 
-  void forEachImageOfSwapChain(VkDevice logicalDevice, VkSwapchainKHR swapChain,
-                               std::function<IteratorStatus(VkImage)> f) {
+  static void
+  forEachImageOfSwapChain(VkDevice logicalDevice, VkSwapchainKHR swapChain,
+                          std::function<IteratorStatus(VkImage)> f) {
     uint32_t imageCount;
     vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
     std::vector<VkImage> images(imageCount);
@@ -971,13 +975,11 @@ private:
     }
   }
 
-  void createSwapChainForPresentation(VkPhysicalDevice physicalDevice,
-                                      VkDevice logicalDevice,
-                                      VkSurfaceKHR windowSurface,
-                                      VkSwapchainKHR &swapChain,
-                                      std::vector<VkImage> &swapChainImages,
-                                      VkFormat &swapChainImageFormat,
-                                      VkExtent2D &swapChainExtent) {
+  static void createSwapChainForPresentation(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
+      std::vector<VkImage> &swapChainImages, VkFormat &swapChainImageFormat,
+      VkExtent2D &swapChainExtent) {
 
     SwapChainSupportDetails swapChainSupport =
         querySwapChainDetails(physicalDevice, windowSurface);
@@ -986,7 +988,7 @@ private:
         chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode =
         chooseSwapPresentMode(swapChainSupport.presentMode);
-    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, window);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
     if (swapChainSupport.capabilities.maxImageCount > 0 &&
@@ -2038,7 +2040,7 @@ private:
                             presentationQueueForPresentable);
 
     createSwapChainForPresentation(
-        presentablePhysicalDevice, presentableLogicalDevice,
+        presentablePhysicalDevice, presentableLogicalDevice, window,
         presentableWindowSurface, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainImageFormat,
         presentableSwapChainExtent);
