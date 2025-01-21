@@ -2408,7 +2408,8 @@ private:
           presentableRenderingFinishedSemaphores, // using this for
                                                   // copyFinishSemaphore
           presentableInFlightFences, presentableStagingBuffers,
-          presentableStagingBuffersData, stagingBufferSize, false);
+          presentableStagingBuffersData, stagingBufferSize,
+          DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
 #endif
     }
 
