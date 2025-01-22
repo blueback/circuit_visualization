@@ -25,7 +25,7 @@ const bool enableValidationLayers = true;
 #endif
 
 const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
-#define SPLIT_RENDER_PRESENT_MODE
+// #define SPLIT_RENDER_PRESENT_MODE
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
