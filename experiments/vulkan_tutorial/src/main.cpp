@@ -1055,10 +1055,10 @@ private:
     swapChainExtent = extent;
   }
 
-  void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
-                                      VkDevice logicalDevice, uint32_t width,
-                                      uint32_t height, VkFormat format,
-                                      VkImage &image) {
+  static void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
+                                             VkDevice logicalDevice,
+                                             uint32_t width, uint32_t height,
+                                             VkFormat format, VkImage &image) {
     VkImageCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     createInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -1085,8 +1085,9 @@ private:
     }
   }
 
-  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
-                          VkPhysicalDevice physicalDevice) {
+  static uint32_t findMemoryType(uint32_t typeFilter,
+                                 VkMemoryPropertyFlags properties,
+                                 VkPhysicalDevice physicalDevice) {
 
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -1103,7 +1104,7 @@ private:
     throw std::runtime_error("Failed to find suitable memory type!");
   }
 
-  void allocateMemoryForUnpresentableDeviceImage(
+  static void allocateMemoryForUnpresentableDeviceImage(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage image,
       VkDeviceMemory &imageMemory) {
 
@@ -1177,10 +1178,9 @@ private:
     }
   }
 
-  void createImageViewForUnpresentableDevice(VkImage image, VkFormat format,
-                                             VkPhysicalDevice physicalDevice,
-                                             VkDevice logicalDevice,
-                                             VkImageView &imageView) {
+  static void createImageViewForUnpresentableDevice(
+      VkImage image, VkFormat format, VkPhysicalDevice physicalDevice,
+      VkDevice logicalDevice, VkImageView &imageView) {
     VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
 
     if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
@@ -2441,6 +2441,19 @@ private:
     swapChainImages.clear();
   }
 
+  static void cleanupImageFrameBufferForUnpresentableDevice(
+      VkDevice logicalDevice, VkImage image, VkDeviceMemory imageMemory,
+      VkImageView imageView, VkFramebuffer frameBuffer) {
+
+    vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
+
+    vkDestroyImageView(logicalDevice, imageView, nullptr);
+
+    vkFreeMemory(logicalDevice, imageMemory, nullptr);
+
+    vkDestroyImage(logicalDevice, image, nullptr);
+  }
+
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
@@ -2456,8 +2469,10 @@ private:
       vkDestroyCommandPool(unpresentableLogicalDevices[i],
                            unpresentableCommandPools[i], nullptr);
 
-      vkDestroyFramebuffer(unpresentableLogicalDevices[i],
-                           unpresentableDeviceFrameBuffers[i], nullptr);
+      cleanupImageFrameBufferForUnpresentableDevice(
+          unpresentableLogicalDevices[i], unpresentableDeviceImages[i],
+          unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
+          unpresentableDeviceFrameBuffers[i]);
 
       vkDestroyPipeline(unpresentableLogicalDevices[i],
                         unpresentableGraphicsPipelines[i], nullptr);
@@ -2467,15 +2482,6 @@ private:
 
       vkDestroyRenderPass(unpresentableLogicalDevices[i],
                           unpresentableRenderPasses[i], nullptr);
-
-      vkDestroyImageView(unpresentableLogicalDevices[i],
-                         unpresentableDeviceImageViews[i], nullptr);
-
-      vkFreeMemory(unpresentableLogicalDevices[i],
-                   unpresentableDeviceImageMemories[i], nullptr);
-
-      vkDestroyImage(unpresentableLogicalDevices[i],
-                     unpresentableDeviceImages[i], nullptr);
     }
 
     destroyStagingBufferAndMemory(presentableLogicalDevice,
