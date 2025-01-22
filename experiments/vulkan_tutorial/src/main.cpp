@@ -25,6 +25,7 @@ const bool enableValidationLayers = true;
 #endif
 
 const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
+#define SPLIT_RENDER_PRESENT_MODE
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -2389,7 +2390,7 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#if 1
+#ifndef SPLIT_RENDER_PRESENT_MODE
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
                 window, presentableWindowSurface, presentableSwapChain,
@@ -2401,7 +2402,7 @@ private:
                 presentableRenderingFinishedSemaphores,
                 presentableInFlightFences,
                 DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#else
+#else  // SPLIT_RENDER_PRESENT_MODE
       drawFrame2(
           unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
           graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
@@ -2425,7 +2426,7 @@ private:
           presentableInFlightFences, presentableStagingBuffers,
           presentableStagingBuffersMemories, presentableStagingBuffersData,
           stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#endif
+#endif // SPLIT_RENDER_PRESENT_MODE
     }
 
     vkQueueWaitIdle(graphicsQueueForPresentable);
