@@ -132,6 +132,8 @@ private:
   std::vector<std::vector<VkDeviceMemory>> unpresentableStagingBuffersMemories;
   std::vector<std::vector<void *>> unpresentableStagingBuffersData;
 
+  bool frameBufferResized = false;
+
 private:
   void initWindow() {
     glfwInit();
@@ -140,6 +142,16 @@ private:
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
+  }
+
+  static void frameBufferResizeCallback(GLFWwindow *window, int width,
+                                        int height) {
+    auto app = reinterpret_cast<HelloTriangleApplication *>(
+        glfwGetWindowUserPointer(window));
+    app->frameBufferResized = true;
   }
 
   void checkExtensions() {
@@ -2348,7 +2360,11 @@ private:
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+        frameBufferResized) {
+
+      frameBufferResized = false;
+
       recreateSwapChainForPresentableDevice(
           physicalDevice, logicalDevice, window, windowSurface, swapChain,
           swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
@@ -2520,7 +2536,11 @@ private:
 
     result = vkQueuePresentKHR(presentQueue_p, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+        frameBufferResized) {
+
+      frameBufferResized = false;
+
       recreateSwapChainForPresentableDevice(
           physicalDevice_p, logicalDevice_p, window, windowSurface_p,
           swapChain_p, swapChainImages_p, swapChainImageViews_p,
