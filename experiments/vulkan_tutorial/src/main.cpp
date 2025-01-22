@@ -2182,6 +2182,86 @@ private:
     }
   }
 
+  static void recreateSwapChainForPresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
+      std::vector<VkImage> &swapChainImages,
+      std::vector<VkImageView> &swapChainImageViews,
+      VkFormat &swapChainImageFormat, VkExtent2D &swapChainExtent,
+      VkRenderPass renderPass,
+      std::vector<VkFramebuffer> &swapChainFrameBuffers) {
+
+    vkDeviceWaitIdle(logicalDevice);
+
+    cleanupSwapChainOfPresentableDevice(logicalDevice, swapChain,
+                                        swapChainImages, swapChainFrameBuffers,
+                                        swapChainImageViews);
+
+    createSwapChainForPresentation(physicalDevice, logicalDevice, window,
+                                   windowSurface, swapChain, swapChainImages,
+                                   swapChainImageFormat, swapChainExtent);
+    createImageViewsForPresentation(swapChainImages, swapChainImageFormat,
+                                    physicalDevice, logicalDevice,
+                                    swapChainImageViews);
+
+    createFrameBuffersForPresentation(physicalDevice, logicalDevice,
+                                      swapChainImageViews, renderPass,
+                                      swapChainExtent, swapChainFrameBuffers);
+  }
+
+  static void recreateStagingBuffers(
+      VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+      std::vector<VkBuffer> &stagingBuffers_p,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
+      std::vector<void *> &stagingBuffersData_p, size_t &stagingBufferSize,
+      VkExtent2D extent, VkPhysicalDevice physicalDevice_unp,
+      VkDevice logicalDevice_unp, std::vector<VkBuffer> &stagingBuffers_unp,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
+      std::vector<void *> &stagingBuffersData_unp) {
+
+    destroyStagingBufferAndMemory(logicalDevice_p, stagingBuffers_p,
+                                  stagingBuffersMemories_p,
+                                  stagingBuffersData_p);
+
+    destroyStagingBufferAndMemory(logicalDevice_unp, stagingBuffers_unp,
+                                  stagingBuffersMemories_unp,
+                                  stagingBuffersData_unp);
+
+    createStagingBuffersForPresentableDevice(
+        physicalDevice_p, logicalDevice_p, extent, stagingBuffers_p,
+        stagingBuffersMemories_p, stagingBuffersData_p, stagingBufferSize);
+
+    createStagingBuffersForUnpresentableDevice(
+        physicalDevice_unp, logicalDevice_unp, extent, stagingBuffers_unp,
+        stagingBuffersMemories_unp, stagingBuffersData_unp, true,
+        stagingBufferSize);
+  }
+
+  static void recreateFrameBufferforUnpresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage &image,
+      VkDeviceMemory &imageMemory, VkImageView &imageView,
+      VkFormat &imageFormat, VkExtent2D extent, VkRenderPass renderPass,
+      VkFramebuffer &frameBuffer) {
+
+    vkDeviceWaitIdle(logicalDevice);
+
+    cleanupImageFrameBufferForUnpresentableDevice(
+        logicalDevice, image, imageMemory, imageView, frameBuffer);
+
+    createUnpresentableDeviceImage(physicalDevice, logicalDevice, extent.width,
+                                   extent.height, imageFormat, image);
+
+    allocateMemoryForUnpresentableDeviceImage(physicalDevice, logicalDevice,
+                                              image, imageMemory);
+
+    createImageViewForUnpresentableDevice(image, imageFormat, physicalDevice,
+                                          logicalDevice, imageView);
+
+    createFrameBufferForUnpresentableDevice(physicalDevice, logicalDevice,
+                                            imageView, renderPass, extent,
+                                            frameBuffer);
+  }
+
   void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                  VkQueue graphicsQueue, VkQueue presentQueue,
                  GLFWwindow *window, VkSurfaceKHR windowSurface,
@@ -2200,12 +2280,28 @@ private:
 
     vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE,
                     UINT64_MAX);
-    vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(logicalDevice, swapChain, UINT64_MAX,
-                          imageAvailableSemaphores[currentFrame],
-                          VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(
+        logicalDevice, swapChain, UINT64_MAX,
+        imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+      recreateSwapChainForPresentableDevice(
+          physicalDevice, logicalDevice, window, windowSurface, swapChain,
+          swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
+          renderPass, swapChainFrameBuffers);
+
+      std::cout << "EXTENT(aq) -> width:" << extent.width
+                << ", height:" << extent.height << std::endl;
+
+      return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+      throw std::runtime_error("failed to aquire swap chain image!");
+    }
+
+    // Only reset the fence if we are submitting work
+    vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
@@ -2250,7 +2346,18 @@ private:
 
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(presentQueue, &presentInfo);
+    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+      recreateSwapChainForPresentableDevice(
+          physicalDevice, logicalDevice, window, windowSurface, swapChain,
+          swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
+          renderPass, swapChainFrameBuffers);
+      std::cout << "EXTENT(pr) -> width:" << extent.width
+                << ", height:" << extent.height << std::endl;
+    } else if (result != VK_SUCCESS) {
+      throw std::runtime_error("failed to present swap chain image!");
+    }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
@@ -2288,7 +2395,6 @@ private:
 
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
-    vkResetFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame]);
 
     vkResetCommandBuffer(commandBuffers_unp[currentFrame], 0);
 
@@ -2336,9 +2442,39 @@ private:
     //////////////////////////////////////////////////////////////////////
 
     uint32_t imageIndex_p;
-    vkAcquireNextImageKHR(logicalDevice_p, swapChain_p, UINT64_MAX,
-                          imageAvailableSemaphores_p[currentFrame],
-                          VK_NULL_HANDLE, &imageIndex_p);
+    VkResult result =
+        vkAcquireNextImageKHR(logicalDevice_p, swapChain_p, UINT64_MAX,
+                              imageAvailableSemaphores_p[currentFrame],
+                              VK_NULL_HANDLE, &imageIndex_p);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+      recreateSwapChainForPresentableDevice(
+          physicalDevice_p, logicalDevice_p, window, windowSurface_p,
+          swapChain_p, swapChainImages_p, swapChainImageViews_p,
+          swapChainImageFormat_p, extent, renderPass_p,
+          swapChainFrameBuffers_p);
+
+      recreateFrameBufferforUnpresentableDevice(
+          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
+          imageView_unp, imageFormat_unp, extent, renderPass_unp,
+          frameBuffer_unp);
+
+      recreateStagingBuffers(
+          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
+          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
+          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          stagingBuffersMemories_unp, stagingBufferData_unp);
+
+      std::cout << "EXTENT(aq) -> width:" << extent.width
+                << ", height:" << extent.height << std::endl;
+
+      return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+      throw std::runtime_error("failed to aquire swap chain image!");
+    }
+
+    // Only reset the fence if we are submitting work
+    vkResetFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame]);
 
     vkResetCommandBuffer(copyCommandBuffers_p[currentFrame], 0);
 
@@ -2382,7 +2518,31 @@ private:
 
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(presentQueue_p, &presentInfo);
+    result = vkQueuePresentKHR(presentQueue_p, &presentInfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+      recreateSwapChainForPresentableDevice(
+          physicalDevice_p, logicalDevice_p, window, windowSurface_p,
+          swapChain_p, swapChainImages_p, swapChainImageViews_p,
+          swapChainImageFormat_p, extent, renderPass_p,
+          swapChainFrameBuffers_p);
+
+      recreateFrameBufferforUnpresentableDevice(
+          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
+          imageView_unp, imageFormat_unp, extent, renderPass_unp,
+          frameBuffer_unp);
+
+      recreateStagingBuffers(
+          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
+          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
+          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          stagingBuffersMemories_unp, stagingBufferData_unp);
+
+      std::cout << "EXTENT(pr) -> width:" << extent.width
+                << ", height:" << extent.height << std::endl;
+    } else if (result != VK_SUCCESS) {
+      throw std::runtime_error("failed to present swap chain image!");
+    }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
