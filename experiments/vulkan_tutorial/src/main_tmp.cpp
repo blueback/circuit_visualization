@@ -1055,10 +1055,10 @@ private:
     swapChainExtent = extent;
   }
 
-  void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
-                                      VkDevice logicalDevice, uint32_t width,
-                                      uint32_t height, VkFormat format,
-                                      VkImage &image) {
+  static void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
+                                             VkDevice logicalDevice,
+                                             uint32_t width, uint32_t height,
+                                             VkFormat format, VkImage &image) {
     VkImageCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     createInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -1085,8 +1085,9 @@ private:
     }
   }
 
-  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
-                          VkPhysicalDevice physicalDevice) {
+  static uint32_t findMemoryType(uint32_t typeFilter,
+                                 VkMemoryPropertyFlags properties,
+                                 VkPhysicalDevice physicalDevice) {
 
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -1103,7 +1104,7 @@ private:
     throw std::runtime_error("Failed to find suitable memory type!");
   }
 
-  void allocateMemoryForUnpresentableDeviceImage(
+  static void allocateMemoryForUnpresentableDeviceImage(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage image,
       VkDeviceMemory &imageMemory) {
 
@@ -1177,10 +1178,9 @@ private:
     }
   }
 
-  void createImageViewForUnpresentableDevice(VkImage image, VkFormat format,
-                                             VkPhysicalDevice physicalDevice,
-                                             VkDevice logicalDevice,
-                                             VkImageView &imageView) {
+  static void createImageViewForUnpresentableDevice(
+      VkImage image, VkFormat format, VkPhysicalDevice physicalDevice,
+      VkDevice logicalDevice, VkImageView &imageView) {
     VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
 
     if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
@@ -1918,14 +1918,14 @@ private:
     }
   }
 
-  void createStagingBuffer(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkExtent2D extent,
-                           VkBuffer &stagingBuffer,
-                           VkDeviceMemory &stagingBufferMemory,
-                           void *&stagingBufferData,
-                           VkBufferUsageFlags bufferFlags,
-                           const bool isPresentableStagingBufferSizeSet,
-                           size_t &stagingBufferSize) {
+  static void createStagingBuffer(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice, VkExtent2D extent,
+                                  VkBuffer &stagingBuffer,
+                                  VkDeviceMemory &stagingBufferMemory,
+                                  void *&stagingBufferData,
+                                  VkBufferUsageFlags bufferFlags,
+                                  const bool isPresentableStagingBufferSizeSet,
+                                  size_t &stagingBufferSize) {
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1963,14 +1963,12 @@ private:
     }
   }
 
-  void createStagingBuffers(VkPhysicalDevice physicalDevice,
-                            VkDevice logicalDevice, VkExtent2D extent,
-                            std::vector<VkBuffer> &stagingBuffers,
-                            std::vector<VkDeviceMemory> &stagingBuffersMemories,
-                            std::vector<void *> &stagingBuffersData,
-                            VkBufferUsageFlags bufferFlags,
-                            bool isPresentableStagingBufferSizeSet,
-                            size_t &stagingBufferSize) {
+  static void createStagingBuffers(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories,
+      std::vector<void *> &stagingBuffersData, VkBufferUsageFlags bufferFlags,
+      bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
 
     stagingBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     stagingBuffersMemories.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1991,7 +1989,7 @@ private:
     }
   }
 
-  void createStagingBuffersForPresentableDevice(
+  static void createStagingBuffersForPresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
       std::vector<VkDeviceMemory> &stagingBuffersMemories,
@@ -2003,7 +2001,7 @@ private:
                          stagingBufferSize);
   }
 
-  void createStagingBuffersForUnpresentableDevice(
+  static void createStagingBuffersForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
       std::vector<VkDeviceMemory> &stagingBuffersMemories,
@@ -2016,14 +2014,18 @@ private:
                          isPresentableStagingBufferSizeSet, stagingBufferSize);
   }
 
-  void destroyStagingBufferAndMemory(
+  static void destroyStagingBufferAndMemory(
       VkDevice logicalDevice, std::vector<VkBuffer> &stagingBuffers,
-      std::vector<VkDeviceMemory> &stagingBuffersMemories) {
+      std::vector<VkDeviceMemory> &stagingBuffersMemories,
+      std::vector<void *> &stagingBuffersData) {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       vkDestroyBuffer(logicalDevice, stagingBuffers[i], nullptr);
       vkFreeMemory(logicalDevice, stagingBuffersMemories[i], nullptr);
     }
+    stagingBuffers.clear();
+    stagingBuffersMemories.clear();
+    stagingBuffersData.clear();
   }
 
   void initVulkan() {
@@ -2206,6 +2208,59 @@ private:
                                       swapChainExtent, swapChainFrameBuffers);
   }
 
+  static void recreateStagingBuffers(
+      VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+      std::vector<VkBuffer> &stagingBuffers_p,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
+      std::vector<void *> &stagingBuffersData_p, size_t &stagingBufferSize,
+      VkExtent2D extent, VkPhysicalDevice physicalDevice_unp,
+      VkDevice logicalDevice_unp, std::vector<VkBuffer> &stagingBuffers_unp,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
+      std::vector<void *> &stagingBuffersData_unp) {
+
+    destroyStagingBufferAndMemory(logicalDevice_p, stagingBuffers_p,
+                                  stagingBuffersMemories_p,
+                                  stagingBuffersData_p);
+
+    destroyStagingBufferAndMemory(logicalDevice_unp, stagingBuffers_unp,
+                                  stagingBuffersMemories_unp,
+                                  stagingBuffersData_unp);
+
+    createStagingBuffersForPresentableDevice(
+        physicalDevice_p, logicalDevice_p, extent, stagingBuffers_p,
+        stagingBuffersMemories_p, stagingBuffersData_p, stagingBufferSize);
+
+    createStagingBuffersForUnpresentableDevice(
+        physicalDevice_unp, logicalDevice_unp, extent, stagingBuffers_unp,
+        stagingBuffersMemories_unp, stagingBuffersData_unp, true,
+        stagingBufferSize);
+  }
+
+  static void recreateFrameBufferforUnpresentableDevice(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage &image,
+      VkDeviceMemory &imageMemory, VkImageView &imageView,
+      VkFormat &imageFormat, VkExtent2D extent, VkRenderPass renderPass,
+      VkFramebuffer &frameBuffer) {
+
+    vkDeviceWaitIdle(logicalDevice);
+
+    cleanupImageFrameBufferForUnpresentableDevice(
+        logicalDevice, image, imageMemory, imageView, frameBuffer);
+
+    createUnpresentableDeviceImage(physicalDevice, logicalDevice, extent.width,
+                                   extent.height, imageFormat, image);
+
+    allocateMemoryForUnpresentableDeviceImage(physicalDevice, logicalDevice,
+                                              image, imageMemory);
+
+    createImageViewForUnpresentableDevice(image, imageFormat, physicalDevice,
+                                          logicalDevice, imageView);
+
+    createFrameBufferForUnpresentableDevice(physicalDevice, logicalDevice,
+                                            imageView, renderPass, extent,
+                                            frameBuffer);
+  }
+
   void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                  VkQueue graphicsQueue, VkQueue presentQueue,
                  GLFWwindow *window, VkSurfaceKHR windowSurface,
@@ -2306,30 +2361,36 @@ private:
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
 
-  void drawFrame2(
-      VkPhysicalDevice physicalDevice_unp, VkDevice logicalDevice_unp,
-      VkQueue graphicsQueue_unp, VkImage image_unp, VkRenderPass renderPass_unp,
-      VkPipeline graphicsPipeline_unp, VkFramebuffer frameBuffer_unp,
-      std::vector<VkCommandBuffer> &commandBuffers_unp,
-      std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
-      std::vector<VkFence> &interDeviceFences_unp,
-      std::vector<VkBuffer> stagingBuffers_unp,
-      std::vector<void *> stagingBufferData_unp,
-      VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
-      VkQueue graphicsQueue_p, VkQueue presentQueue_p, GLFWwindow *window,
-      VkSurfaceKHR windowSurface_p, VkSwapchainKHR swapChain_p,
-      std::vector<VkImage> &swapChainImages_p,
-      std::vector<VkImageView> &swapChainImageViews_p,
-      VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
-      VkRenderPass renderPass_p,
-      std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
-      std::vector<VkCommandBuffer> &copyCommandBuffers_p,
-      std::vector<VkSemaphore> &imageAvailableSemaphores_p,
-      std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
-      std::vector<VkFence> &inFlightFences_p,
-      std::vector<VkBuffer> stagingBuffers_p,
-      std::vector<void *> stagingBufferData_p, size_t stagingBufferSize,
-      const bool isDynamicViewPortAndScissor) {
+  void drawFrame2(VkPhysicalDevice physicalDevice_unp,
+                  VkDevice logicalDevice_unp, VkQueue graphicsQueue_unp,
+                  VkImage &image_unp, VkDeviceMemory &imageMemory_unp,
+                  VkImageView &imageView_unp, VkFormat &imageFormat_unp,
+                  VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
+                  VkFramebuffer &frameBuffer_unp,
+                  std::vector<VkCommandBuffer> &commandBuffers_unp,
+                  std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
+                  std::vector<VkFence> &interDeviceFences_unp,
+                  std::vector<VkBuffer> &stagingBuffers_unp,
+                  std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
+                  std::vector<void *> &stagingBufferData_unp,
+                  VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+                  VkQueue graphicsQueue_p, VkQueue presentQueue_p,
+                  GLFWwindow *window, VkSurfaceKHR windowSurface_p,
+                  VkSwapchainKHR &swapChain_p,
+                  std::vector<VkImage> &swapChainImages_p,
+                  std::vector<VkImageView> &swapChainImageViews_p,
+                  VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
+                  VkRenderPass renderPass_p,
+                  std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
+                  std::vector<VkCommandBuffer> &copyCommandBuffers_p,
+                  std::vector<VkSemaphore> &imageAvailableSemaphores_p,
+                  std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
+                  std::vector<VkFence> &inFlightFences_p,
+                  std::vector<VkBuffer> &stagingBuffers_p,
+                  std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
+                  std::vector<void *> &stagingBufferData_p,
+                  size_t &stagingBufferSize,
+                  const bool isDynamicViewPortAndScissor) {
 
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
@@ -2339,7 +2400,7 @@ private:
     recordCommandBufferForUnpresentableDevice(
         physicalDevice_unp, commandBuffers_unp[currentFrame], image_unp,
         renderPass_unp, frameBuffer_unp, extent, graphicsPipeline_unp,
-        stagingBuffers_unp[currentFrame], false);
+        stagingBuffers_unp[currentFrame], isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo_unp{};
     submitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2391,6 +2452,17 @@ private:
           swapChain_p, swapChainImages_p, swapChainImageViews_p,
           swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
+
+      recreateFrameBufferforUnpresentableDevice(
+          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
+          imageView_unp, imageFormat_unp, extent, renderPass_unp,
+          frameBuffer_unp);
+
+      recreateStagingBuffers(
+          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
+          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
+          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          stagingBuffersMemories_unp, stagingBufferData_unp);
 
       std::cout << "EXTENT(aq) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
@@ -2453,6 +2525,18 @@ private:
           swapChain_p, swapChainImages_p, swapChainImageViews_p,
           swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
+
+      recreateFrameBufferforUnpresentableDevice(
+          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
+          imageView_unp, imageFormat_unp, extent, renderPass_unp,
+          frameBuffer_unp);
+
+      recreateStagingBuffers(
+          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
+          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
+          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          stagingBuffersMemories_unp, stagingBufferData_unp);
+
       std::cout << "EXTENT(pr) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
     } else if (result != VK_SUCCESS) {
@@ -2481,10 +2565,13 @@ private:
       drawFrame2(
           unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
           graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
-          unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
-          unpresentableDeviceFrameBuffers[0], unpresentableCommandBuffers[0],
+          unpresentableDeviceImageMemories[0], unpresentableDeviceImageViews[0],
+          presentableSwapChainImageFormat, unpresentableRenderPasses[0],
+          unpresentableGraphicsPipelines[0], unpresentableDeviceFrameBuffers[0],
+          unpresentableCommandBuffers[0],
           unpresentableRenderingFinishedSemaphores[0],
           unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
+          unpresentableStagingBuffersMemories[0],
           unpresentableStagingBuffersData[0], presentablePhysicalDevice,
           presentableLogicalDevice, graphicsQueueForPresentable,
           presentationQueueForPresentable, window, presentableWindowSurface,
@@ -2496,8 +2583,8 @@ private:
           presentableRenderingFinishedSemaphores, // using this for
                                                   // copyFinishSemaphore
           presentableInFlightFences, presentableStagingBuffers,
-          presentableStagingBuffersData, stagingBufferSize,
-          DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+          presentableStagingBuffersMemories, presentableStagingBuffersData,
+          stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
 #endif
     }
 
@@ -2525,12 +2612,26 @@ private:
     swapChainImages.clear();
   }
 
+  static void cleanupImageFrameBufferForUnpresentableDevice(
+      VkDevice logicalDevice, VkImage image, VkDeviceMemory imageMemory,
+      VkImageView imageView, VkFramebuffer frameBuffer) {
+
+    vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
+
+    vkDestroyImageView(logicalDevice, imageView, nullptr);
+
+    vkFreeMemory(logicalDevice, imageMemory, nullptr);
+
+    vkDestroyImage(logicalDevice, image, nullptr);
+  }
+
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
       destroyStagingBufferAndMemory(unpresentableLogicalDevices[i],
                                     unpresentableStagingBuffers[i],
-                                    unpresentableStagingBuffersMemories[i]);
+                                    unpresentableStagingBuffersMemories[i],
+                                    unpresentableStagingBuffersData[i]);
 
       destroySyncObjectsForUnpresentableDevice(
           unpresentableLogicalDevices[i],
@@ -2540,8 +2641,10 @@ private:
       vkDestroyCommandPool(unpresentableLogicalDevices[i],
                            unpresentableCommandPools[i], nullptr);
 
-      vkDestroyFramebuffer(unpresentableLogicalDevices[i],
-                           unpresentableDeviceFrameBuffers[i], nullptr);
+      cleanupImageFrameBufferForUnpresentableDevice(
+          unpresentableLogicalDevices[i], unpresentableDeviceImages[i],
+          unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
+          unpresentableDeviceFrameBuffers[i]);
 
       vkDestroyPipeline(unpresentableLogicalDevices[i],
                         unpresentableGraphicsPipelines[i], nullptr);
@@ -2551,20 +2654,11 @@ private:
 
       vkDestroyRenderPass(unpresentableLogicalDevices[i],
                           unpresentableRenderPasses[i], nullptr);
-
-      vkDestroyImageView(unpresentableLogicalDevices[i],
-                         unpresentableDeviceImageViews[i], nullptr);
-
-      vkFreeMemory(unpresentableLogicalDevices[i],
-                   unpresentableDeviceImageMemories[i], nullptr);
-
-      vkDestroyImage(unpresentableLogicalDevices[i],
-                     unpresentableDeviceImages[i], nullptr);
     }
 
-    destroyStagingBufferAndMemory(presentableLogicalDevice,
-                                  presentableStagingBuffers,
-                                  presentableStagingBuffersMemories);
+    destroyStagingBufferAndMemory(
+        presentableLogicalDevice, presentableStagingBuffers,
+        presentableStagingBuffersMemories, presentableStagingBuffersData);
 
     destroySyncObjectsForPresentation(
         presentableLogicalDevice, presentableImageAvailableSemaphores,
