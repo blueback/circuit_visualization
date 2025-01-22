@@ -26,6 +26,7 @@ const bool enableValidationLayers = true;
 
 const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
 // #define SPLIT_RENDER_PRESENT_MODE
+// #define HANDLE_WINDOW_MINIMIZATION
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -2202,6 +2203,15 @@ private:
       VkFormat &swapChainImageFormat, VkExtent2D &swapChainExtent,
       VkRenderPass renderPass,
       std::vector<VkFramebuffer> &swapChainFrameBuffers) {
+
+#ifdef HANDLE_WINDOW_MINIMIZATION
+    int window_width = 0, window_height = 0;
+    glfwGetFramebufferSize(window, &window_width, &window_height);
+    while (window_width == 0 || window_height == 0) {
+      glfwWaitEvents();
+      glfwGetFramebufferSize(window, &window_width, &window_height);
+    }
+#endif // HANDLE_WINDOW_MINIMIZATION
 
     vkDeviceWaitIdle(logicalDevice);
 
