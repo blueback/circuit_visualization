@@ -30,6 +30,12 @@ const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
 // #define SPLIT_RENDER_PRESENT_MODE
 // #define HANDLE_WINDOW_MINIMIZATION
 
+#ifdef SPLIT_RENDER_PRESENT_MODE
+const bool isSplitRenderPresentMode = true;
+#else  // SPLIT_RENDER_PRESENT_MODE
+const bool isSplitRenderPresentMode = false;
+#endif // SPLIT_RENDER_PRESENT_MODE
+
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
     const VkAllocationCallbacks *pAllocator,
@@ -384,8 +390,8 @@ private:
     return deviceProperties.deviceName;
   }
 
-  void forEachAvailablePhysicalDevice(
-      std::function<IteratorStatus(VkPhysicalDevice)> f) {
+  static void forEachAvailablePhysicalDevice(
+      VkInstance instance, std::function<IteratorStatus(VkPhysicalDevice)> f) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -410,7 +416,7 @@ private:
     }
   }
 
-  void forEachExtensionOfPhysicalDevice(
+  static void forEachExtensionOfPhysicalDevice(
       VkPhysicalDevice device,
       std::function<IteratorStatus(VkExtensionProperties)> f) {
     uint32_t extensionCount = 0;
@@ -439,13 +445,13 @@ private:
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
                                              nullptr);
 
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    std::vector<VkQueueFamilyProperties> queueFamiliesProps(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
-                                             queueFamilies.data());
+                                             queueFamiliesProps.data());
 
     int queueIndex = 0;
-    for (const auto &queueFamily : queueFamilies) {
-      if (f(queueIndex++, queueFamily) == IterationBreak) {
+    for (const auto &queueFamilyProps : queueFamiliesProps) {
+      if (f(queueIndex++, queueFamilyProps) == IterationBreak) {
         return;
       }
     }
@@ -467,16 +473,15 @@ private:
                                           VkSurfaceKHR surface) {
 
     bool presentable = false;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (isPresentationSupportedByQueueOnSurface(physicalDevice,
-                                                      queueIndex, surface)) {
-            presentable = true;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
+    forEachQueueFamilyOfDevice(physicalDevice,
+                               [&](int queueIndex, VkQueueFamilyProperties) {
+                                 if (isPresentationSupportedByQueueOnSurface(
+                                         physicalDevice, queueIndex, surface)) {
+                                   presentable = true;
+                                   return IterationBreak;
+                                 }
+                                 return IterationContinue;
+                               });
     return presentable;
   }
 
@@ -485,21 +490,20 @@ private:
                                   VkSurfaceKHR surface) {
 
     std::optional<uint32_t> presentationQueueIndex;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (isPresentationSupportedByQueueOnSurface(physicalDevice,
-                                                      queueIndex, surface)) {
-            presentationQueueIndex = queueIndex;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
+    forEachQueueFamilyOfDevice(physicalDevice,
+                               [&](int queueIndex, VkQueueFamilyProperties) {
+                                 if (isPresentationSupportedByQueueOnSurface(
+                                         physicalDevice, queueIndex, surface)) {
+                                   presentationQueueIndex = queueIndex;
+                                   return IterationBreak;
+                                 }
+                                 return IterationContinue;
+                               });
     assert(presentationQueueIndex.has_value());
     return presentationQueueIndex.value();
   }
 
-  bool isPhysicalDeviceDedicatedGPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceDedicatedGPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -510,7 +514,7 @@ private:
     return false;
   }
 
-  bool isPhysicalDeviceIntegratedGPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceIntegratedGPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -521,7 +525,7 @@ private:
     return false;
   }
 
-  bool isPhysicalDeviceCPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceCPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -532,7 +536,7 @@ private:
     return false;
   }
 
-  bool
+  static bool
   isGeometryShaderSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceFeatures deviceFeatures;
 
@@ -550,8 +554,8 @@ private:
     bool hasGraphicsQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             hasGraphicsQueue = true;
             return IterationBreak;
           }
@@ -565,8 +569,8 @@ private:
     std::optional<uint32_t> graphicsQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             graphicsQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -576,13 +580,13 @@ private:
     return graphicsQueueIndex.value();
   }
 
-  bool
+  static bool
   isComputeQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
     bool hasComputeQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             hasComputeQueue = true;
             return IterationBreak;
           }
@@ -596,8 +600,8 @@ private:
     std::optional<uint32_t> computeQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             computeQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -612,8 +616,8 @@ private:
     bool hasTransferQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
             hasTransferQueue = true;
             return IterationBreak;
           }
@@ -627,8 +631,8 @@ private:
     std::optional<uint32_t> transferQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
             transferQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -638,8 +642,9 @@ private:
     return transferQueueIndex.value();
   }
 
-  bool isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
-                                            const char *extensionName) {
+  static bool
+  isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
+                                       const char *extensionName) {
     bool isExtensionSupported = false;
     forEachExtensionOfPhysicalDevice(
         physicalDevice, [&](VkExtensionProperties extensionProperties) {
@@ -652,7 +657,8 @@ private:
     return isExtensionSupported;
   }
 
-  bool checkPhysicalDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
+  static bool
+  checkPhysicalDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
     for (const auto &deviceExtensionName : deviceExtensions) {
       if (!isExtensionSupportedByPhysicalDevice(physicalDevice,
                                                 deviceExtensionName)) {
@@ -662,12 +668,16 @@ private:
     return true;
   }
 
-  bool isDeviceSuitable(VkPhysicalDevice device) {
+  static bool isDeviceSuitable(VkPhysicalDevice device) {
     /*
     printPhysicalDeviceExtensions(device);
     */
 
     if (!isGraphicsQueueSupportedByPhysicalDevice(device)) {
+      return false;
+    }
+
+    if (!isTransferQueueSupportedByPhysicalDevice(device)) {
       return false;
     }
 
@@ -684,7 +694,7 @@ private:
     return false;
   }
 
-  int rateDeviceSuitability(VkPhysicalDevice device) {
+  static int rateDeviceSuitability(VkPhysicalDevice device) {
     int score = 0;
 
     // Application can't function without geometry shaders
@@ -711,7 +721,7 @@ private:
     return score;
   }
 
-  void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
+  static void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
     std::cout << "Extensions for Device \"" << getPhysicalDeviceName(device)
               << "\" ..." << std::endl;
 
@@ -723,9 +733,10 @@ private:
         });
   }
 
-  void pickPhysicalDevice(VkSurfaceKHR windowSurface) {
+  void pickPhysicalDevice(VkInstance instance, VkSurfaceKHR windowSurface) {
     presentablePhysicalDevice = VK_NULL_HANDLE;
-    forEachAvailablePhysicalDevice([&](VkPhysicalDevice device) {
+    unpresentablePhysicalDevices.clear();
+    forEachAvailablePhysicalDevice(instance, [&](VkPhysicalDevice device) {
       std::cout << "Probing Device :- " << getPhysicalDeviceName(device)
                 << "..." << std::endl;
       std::cout << "=================" << std::endl;
@@ -756,6 +767,11 @@ private:
       throw std::runtime_error(
           "failed to find presentable GPUs with Vulkan support!");
     }
+
+    if (unpresentablePhysicalDevices.size() == 0) {
+      throw std::runtime_error(
+          "failed to find unpresentable GPUs with Vulkan support!");
+    }
   }
 
   /*
@@ -782,8 +798,9 @@ private:
   }
   */
 
-  void createGraphicsQueue(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkQueue &graphicsQueue) {
+  static void createGraphicsQueue(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  VkQueue &graphicsQueue) {
 
     assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
 
@@ -794,10 +811,10 @@ private:
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
-  void createPresentationQueue(VkPhysicalDevice physicalDevice,
-                               VkDevice logicalDevice,
-                               VkSurfaceKHR windowSurface,
-                               VkQueue &presentationQueue) {
+  static void createPresentationQueue(VkPhysicalDevice physicalDevice,
+                                      VkDevice logicalDevice,
+                                      VkSurfaceKHR windowSurface,
+                                      VkQueue &presentationQueue) {
 
     assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
 
@@ -810,8 +827,9 @@ private:
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
-  void createTransferQueue(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkQueue &transferQueue) {
+  static void createTransferQueue(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  VkQueue &transferQueue) {
 
     assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
 
@@ -820,6 +838,42 @@ private:
 
     std::cout << "Created transfer queue for "
               << getPhysicalDeviceName(physicalDevice) << std::endl;
+  }
+
+  static std::vector<uint32_t>
+  getUniqueQueueFamilies(VkPhysicalDevice physicalDevice,
+                         VkSurfaceKHR windowSurface, const bool needGraphics,
+                         const bool needPresent, const bool needTransfer) {
+    std::vector<uint32_t> uniqueQueueFamiliesArray;
+
+    std::set<uint32_t> uniqueQueueFamiliesSet;
+
+    if (needGraphics) {
+      assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
+      uniqueQueueFamiliesSet.insert(
+          getGraphicsQueueFamilyIndex(physicalDevice));
+    }
+
+    if (needTransfer) {
+      assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
+      uniqueQueueFamiliesSet.insert(
+          getTransferQueueFamilyIndex(physicalDevice));
+    }
+
+    if (needPresent) {
+      assert(windowSurface != VK_NULL_HANDLE);
+      assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
+      uniqueQueueFamiliesSet.insert(
+          getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
+    } else {
+      assert(windowSurface == VK_NULL_HANDLE);
+    }
+
+    for (auto uniqueQueueFamily : uniqueQueueFamiliesSet) {
+      uniqueQueueFamiliesArray.push_back(uniqueQueueFamily);
+    }
+
+    return uniqueQueueFamiliesArray;
   }
 
   struct SwapChainSupportDetails {
@@ -933,12 +987,12 @@ private:
   }
 
   void createLogicalDevice(VkPhysicalDevice physicalDevice,
-                           std::set<uint32_t> &uniqueQueueFamilies,
+                           std::vector<uint32_t> &uniqueQueueFamiliesArray,
                            VkDevice &logicalDevice) {
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     float queuePriority = 1.0f;
-    for (uint32_t queueFamilyIndex : uniqueQueueFamilies) {
+    for (uint32_t queueFamilyIndex : uniqueQueueFamiliesArray) {
       VkDeviceQueueCreateInfo queueCreateInfo{};
       queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
       queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
@@ -983,29 +1037,21 @@ private:
                                       VkSurfaceKHR windowSurface,
                                       VkDevice &logicalDevice) {
 
-    std::set<uint32_t> uniqueQueueFamilies;
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        getUniqueQueueFamilies(physicalDevice, windowSurface, true, true, true);
 
-    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-    uniqueQueueFamilies.insert(
-        getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
-
-    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
-      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
+                        logicalDevice);
   }
 
   void createUnpresentableLogicalDevice(VkPhysicalDevice physicalDevice,
                                         VkDevice &logicalDevice) {
 
-    std::set<uint32_t> uniqueQueueFamilies;
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, VK_NULL_HANDLE, true, false, true);
 
-    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
-      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
+                        logicalDevice);
   }
 
   void createSurface(VkSurfaceKHR &windowSurface) {
@@ -1035,7 +1081,8 @@ private:
 
   static void createSwapChainForPresentation(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-      GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
+      GLFWwindow *window, VkSurfaceKHR windowSurface,
+      const bool isImageTransferDestination, VkSwapchainKHR &swapChain,
       std::vector<VkImage> &swapChainImages, VkFormat &swapChainImageFormat,
       VkExtent2D &swapChainExtent) {
 
@@ -1063,23 +1110,22 @@ private:
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage =
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    // createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
-    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-    uint32_t graphicsQueueFamilyIndex =
-        getGraphicsQueueFamilyIndex(physicalDevice);
-    uint32_t presentationQueueFamilyIndex =
-        getPresentationQueueFamilyIndex(physicalDevice, windowSurface);
-    uint32_t queueFamilyIndices[] = {graphicsQueueFamilyIndex,
-                                     presentationQueueFamilyIndex};
+    if (isImageTransferDestination) {
+      createInfo.imageUsage =
+          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    } else {
+      createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
 
-    if (graphicsQueueFamilyIndex != presentationQueueFamilyIndex) {
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, windowSurface, true, true, isImageTransferDestination);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
       createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-      createInfo.queueFamilyIndexCount = 2;
-      createInfo.pQueueFamilyIndices = queueFamilyIndices;
+      createInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      createInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
     } else {
       createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
       createInfo.queueFamilyIndexCount = 0;     // Optional
@@ -2152,7 +2198,7 @@ private:
 
     createSurface(presentableWindowSurface);
 
-    pickPhysicalDevice(presentableWindowSurface);
+    pickPhysicalDevice(instance, presentableWindowSurface);
 
     createPresentableLogicalDevice(presentablePhysicalDevice,
                                    presentableWindowSurface,
@@ -2165,9 +2211,9 @@ private:
 
     createSwapChainForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice, window,
-        presentableWindowSurface, presentableSwapChain,
-        presentableSwapChainImages, presentableSwapChainImageFormat,
-        presentableSwapChainExtent);
+        presentableWindowSurface, isSplitRenderPresentMode,
+        presentableSwapChain, presentableSwapChainImages,
+        presentableSwapChainImageFormat, presentableSwapChainExtent);
 
     createImageViewsForPresentation(
         presentableSwapChainImages, presentableSwapChainImageFormat,
@@ -2334,7 +2380,8 @@ private:
                                         swapChainImageViews);
 
     createSwapChainForPresentation(physicalDevice, logicalDevice, window,
-                                   windowSurface, swapChain, swapChainImages,
+                                   windowSurface, isSplitRenderPresentMode,
+                                   swapChain, swapChainImages,
                                    swapChainImageFormat, swapChainExtent);
     createImageViewsForPresentation(swapChainImages, swapChainImageFormat,
                                     physicalDevice, logicalDevice,
