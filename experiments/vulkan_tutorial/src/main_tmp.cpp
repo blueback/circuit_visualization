@@ -3,6 +3,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+
 #include <cstdlib>
 #include <iostream>
 #include <optional>
@@ -25,6 +27,14 @@ const bool enableValidationLayers = true;
 #endif
 
 const bool DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS = false;
+// #define SPLIT_RENDER_PRESENT_MODE
+// #define HANDLE_WINDOW_MINIMIZATION
+
+#ifdef SPLIT_RENDER_PRESENT_MODE
+const bool isSplitRenderPresentMode = true;
+#else  // SPLIT_RENDER_PRESENT_MODE
+const bool isSplitRenderPresentMode = false;
+#endif // SPLIT_RENDER_PRESENT_MODE
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -50,6 +60,40 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
     func(instance, debugMessenger, pAllocator);
   }
 }
+
+struct Vertex {
+  glm::vec2 pos;
+  glm::vec3 color;
+
+  static VkVertexInputBindingDescription getBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    return bindingDescription;
+  };
+
+  static std::array<VkVertexInputAttributeDescription, 2>
+  getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+    attributeDescriptions[1].binding = 0;
+    attributeDescriptions[1].location = 1;
+    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+    return attributeDescriptions;
+  }
+};
+
+const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 class HelloTriangleApplication {
 public:
@@ -99,6 +143,11 @@ private:
   VkCommandPool presentableCommandPool;
   std::vector<VkCommandBuffer> presentableCommandBuffers;
 
+  VkCommandPool presentableCommandPoolForTransfer;
+
+  VkBuffer presentableVertexBuffer;
+  VkDeviceMemory presentableVertexBufferMemory;
+
   std::vector<VkSemaphore> presentableImageAvailableSemaphores;
   std::vector<VkSemaphore> presentableRenderingFinishedSemaphores;
   std::vector<VkFence> presentableInFlightFences;
@@ -123,6 +172,9 @@ private:
   std::vector<VkCommandPool> unpresentableCommandPools;
   std::vector<std::vector<VkCommandBuffer>> unpresentableCommandBuffers;
 
+  std::vector<VkBuffer> unpresentableVertexBuffers;
+  std::vector<VkDeviceMemory> unpresentableVertexBuffersMemories;
+
   std::vector<std::vector<VkSemaphore>>
       unpresentableRenderingFinishedSemaphores;
   std::vector<std::vector<VkFence>> unpresentableInterDeviceFences;
@@ -130,6 +182,8 @@ private:
   std::vector<std::vector<VkBuffer>> unpresentableStagingBuffers;
   std::vector<std::vector<VkDeviceMemory>> unpresentableStagingBuffersMemories;
   std::vector<std::vector<void *>> unpresentableStagingBuffersData;
+
+  bool frameBufferResized = false;
 
 private:
   void initWindow() {
@@ -139,6 +193,16 @@ private:
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
+  }
+
+  static void frameBufferResizeCallback(GLFWwindow *window, int width,
+                                        int height) {
+    auto app = reinterpret_cast<HelloTriangleApplication *>(
+        glfwGetWindowUserPointer(window));
+    app->frameBufferResized = true;
   }
 
   void checkExtensions() {
@@ -328,8 +392,8 @@ private:
     return deviceProperties.deviceName;
   }
 
-  void forEachAvailablePhysicalDevice(
-      std::function<IteratorStatus(VkPhysicalDevice)> f) {
+  static void forEachAvailablePhysicalDevice(
+      VkInstance instance, std::function<IteratorStatus(VkPhysicalDevice)> f) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -354,7 +418,7 @@ private:
     }
   }
 
-  void forEachExtensionOfPhysicalDevice(
+  static void forEachExtensionOfPhysicalDevice(
       VkPhysicalDevice device,
       std::function<IteratorStatus(VkExtensionProperties)> f) {
     uint32_t extensionCount = 0;
@@ -383,13 +447,13 @@ private:
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
                                              nullptr);
 
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    std::vector<VkQueueFamilyProperties> queueFamiliesProps(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
-                                             queueFamilies.data());
+                                             queueFamiliesProps.data());
 
     int queueIndex = 0;
-    for (const auto &queueFamily : queueFamilies) {
-      if (f(queueIndex++, queueFamily) == IterationBreak) {
+    for (const auto &queueFamilyProps : queueFamiliesProps) {
+      if (f(queueIndex++, queueFamilyProps) == IterationBreak) {
         return;
       }
     }
@@ -411,16 +475,15 @@ private:
                                           VkSurfaceKHR surface) {
 
     bool presentable = false;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (isPresentationSupportedByQueueOnSurface(physicalDevice,
-                                                      queueIndex, surface)) {
-            presentable = true;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
+    forEachQueueFamilyOfDevice(physicalDevice,
+                               [&](int queueIndex, VkQueueFamilyProperties) {
+                                 if (isPresentationSupportedByQueueOnSurface(
+                                         physicalDevice, queueIndex, surface)) {
+                                   presentable = true;
+                                   return IterationBreak;
+                                 }
+                                 return IterationContinue;
+                               });
     return presentable;
   }
 
@@ -429,21 +492,20 @@ private:
                                   VkSurfaceKHR surface) {
 
     std::optional<uint32_t> presentationQueueIndex;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (isPresentationSupportedByQueueOnSurface(physicalDevice,
-                                                      queueIndex, surface)) {
-            presentationQueueIndex = queueIndex;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
+    forEachQueueFamilyOfDevice(physicalDevice,
+                               [&](int queueIndex, VkQueueFamilyProperties) {
+                                 if (isPresentationSupportedByQueueOnSurface(
+                                         physicalDevice, queueIndex, surface)) {
+                                   presentationQueueIndex = queueIndex;
+                                   return IterationBreak;
+                                 }
+                                 return IterationContinue;
+                               });
     assert(presentationQueueIndex.has_value());
     return presentationQueueIndex.value();
   }
 
-  bool isPhysicalDeviceDedicatedGPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceDedicatedGPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -454,7 +516,7 @@ private:
     return false;
   }
 
-  bool isPhysicalDeviceIntegratedGPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceIntegratedGPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -465,7 +527,7 @@ private:
     return false;
   }
 
-  bool isPhysicalDeviceCPU(VkPhysicalDevice physicalDevice) {
+  static bool isPhysicalDeviceCPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
@@ -476,7 +538,7 @@ private:
     return false;
   }
 
-  bool
+  static bool
   isGeometryShaderSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceFeatures deviceFeatures;
 
@@ -494,8 +556,8 @@ private:
     bool hasGraphicsQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             hasGraphicsQueue = true;
             return IterationBreak;
           }
@@ -509,8 +571,8 @@ private:
     std::optional<uint32_t> graphicsQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             graphicsQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -520,13 +582,13 @@ private:
     return graphicsQueueIndex.value();
   }
 
-  bool
+  static bool
   isComputeQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
     bool hasComputeQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             hasComputeQueue = true;
             return IterationBreak;
           }
@@ -540,8 +602,8 @@ private:
     std::optional<uint32_t> computeQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
             computeQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -556,8 +618,8 @@ private:
     bool hasTransferQueue = false;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
             hasTransferQueue = true;
             return IterationBreak;
           }
@@ -571,8 +633,8 @@ private:
     std::optional<uint32_t> transferQueueIndex;
     forEachQueueFamilyOfDevice(
         physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProperties) {
-          if (queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
             transferQueueIndex = queueIndex;
             return IterationBreak;
           }
@@ -582,8 +644,9 @@ private:
     return transferQueueIndex.value();
   }
 
-  bool isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
-                                            const char *extensionName) {
+  static bool
+  isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
+                                       const char *extensionName) {
     bool isExtensionSupported = false;
     forEachExtensionOfPhysicalDevice(
         physicalDevice, [&](VkExtensionProperties extensionProperties) {
@@ -596,7 +659,8 @@ private:
     return isExtensionSupported;
   }
 
-  bool checkPhysicalDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
+  static bool
+  checkPhysicalDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
     for (const auto &deviceExtensionName : deviceExtensions) {
       if (!isExtensionSupportedByPhysicalDevice(physicalDevice,
                                                 deviceExtensionName)) {
@@ -606,12 +670,16 @@ private:
     return true;
   }
 
-  bool isDeviceSuitable(VkPhysicalDevice device) {
+  static bool isDeviceSuitable(VkPhysicalDevice device) {
     /*
     printPhysicalDeviceExtensions(device);
     */
 
     if (!isGraphicsQueueSupportedByPhysicalDevice(device)) {
+      return false;
+    }
+
+    if (!isTransferQueueSupportedByPhysicalDevice(device)) {
       return false;
     }
 
@@ -628,7 +696,7 @@ private:
     return false;
   }
 
-  int rateDeviceSuitability(VkPhysicalDevice device) {
+  static int rateDeviceSuitability(VkPhysicalDevice device) {
     int score = 0;
 
     // Application can't function without geometry shaders
@@ -655,7 +723,7 @@ private:
     return score;
   }
 
-  void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
+  static void printPhysicalDeviceExtensions(VkPhysicalDevice device) {
     std::cout << "Extensions for Device \"" << getPhysicalDeviceName(device)
               << "\" ..." << std::endl;
 
@@ -667,9 +735,10 @@ private:
         });
   }
 
-  void pickPhysicalDevice(VkSurfaceKHR windowSurface) {
+  void pickPhysicalDevice(VkInstance instance, VkSurfaceKHR windowSurface) {
     presentablePhysicalDevice = VK_NULL_HANDLE;
-    forEachAvailablePhysicalDevice([&](VkPhysicalDevice device) {
+    unpresentablePhysicalDevices.clear();
+    forEachAvailablePhysicalDevice(instance, [&](VkPhysicalDevice device) {
       std::cout << "Probing Device :- " << getPhysicalDeviceName(device)
                 << "..." << std::endl;
       std::cout << "=================" << std::endl;
@@ -700,6 +769,11 @@ private:
       throw std::runtime_error(
           "failed to find presentable GPUs with Vulkan support!");
     }
+
+    if (unpresentablePhysicalDevices.size() == 0) {
+      throw std::runtime_error(
+          "failed to find unpresentable GPUs with Vulkan support!");
+    }
   }
 
   /*
@@ -726,8 +800,9 @@ private:
   }
   */
 
-  void createGraphicsQueue(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkQueue &graphicsQueue) {
+  static void createGraphicsQueue(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  VkQueue &graphicsQueue) {
 
     assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
 
@@ -738,10 +813,10 @@ private:
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
-  void createPresentationQueue(VkPhysicalDevice physicalDevice,
-                               VkDevice logicalDevice,
-                               VkSurfaceKHR windowSurface,
-                               VkQueue &presentationQueue) {
+  static void createPresentationQueue(VkPhysicalDevice physicalDevice,
+                                      VkDevice logicalDevice,
+                                      VkSurfaceKHR windowSurface,
+                                      VkQueue &presentationQueue) {
 
     assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
 
@@ -754,8 +829,9 @@ private:
               << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
-  void createTransferQueue(VkPhysicalDevice physicalDevice,
-                           VkDevice logicalDevice, VkQueue &transferQueue) {
+  static void createTransferQueue(VkPhysicalDevice physicalDevice,
+                                  VkDevice logicalDevice,
+                                  VkQueue &transferQueue) {
 
     assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
 
@@ -764,6 +840,42 @@ private:
 
     std::cout << "Created transfer queue for "
               << getPhysicalDeviceName(physicalDevice) << std::endl;
+  }
+
+  static std::vector<uint32_t>
+  getUniqueQueueFamilies(VkPhysicalDevice physicalDevice,
+                         VkSurfaceKHR windowSurface, const bool needGraphics,
+                         const bool needPresent, const bool needTransfer) {
+    std::vector<uint32_t> uniqueQueueFamiliesArray;
+
+    std::set<uint32_t> uniqueQueueFamiliesSet;
+
+    if (needGraphics) {
+      assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
+      uniqueQueueFamiliesSet.insert(
+          getGraphicsQueueFamilyIndex(physicalDevice));
+    }
+
+    if (needTransfer) {
+      assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
+      uniqueQueueFamiliesSet.insert(
+          getTransferQueueFamilyIndex(physicalDevice));
+    }
+
+    if (needPresent) {
+      assert(windowSurface != VK_NULL_HANDLE);
+      assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
+      uniqueQueueFamiliesSet.insert(
+          getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
+    } else {
+      assert(windowSurface == VK_NULL_HANDLE);
+    }
+
+    for (auto uniqueQueueFamily : uniqueQueueFamiliesSet) {
+      uniqueQueueFamiliesArray.push_back(uniqueQueueFamily);
+    }
+
+    return uniqueQueueFamiliesArray;
   }
 
   struct SwapChainSupportDetails {
@@ -877,12 +989,12 @@ private:
   }
 
   void createLogicalDevice(VkPhysicalDevice physicalDevice,
-                           std::set<uint32_t> &uniqueQueueFamilies,
+                           std::vector<uint32_t> &uniqueQueueFamiliesArray,
                            VkDevice &logicalDevice) {
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     float queuePriority = 1.0f;
-    for (uint32_t queueFamilyIndex : uniqueQueueFamilies) {
+    for (uint32_t queueFamilyIndex : uniqueQueueFamiliesArray) {
       VkDeviceQueueCreateInfo queueCreateInfo{};
       queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
       queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
@@ -927,29 +1039,21 @@ private:
                                       VkSurfaceKHR windowSurface,
                                       VkDevice &logicalDevice) {
 
-    std::set<uint32_t> uniqueQueueFamilies;
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        getUniqueQueueFamilies(physicalDevice, windowSurface, true, true, true);
 
-    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-    uniqueQueueFamilies.insert(
-        getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
-
-    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
-      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
+                        logicalDevice);
   }
 
   void createUnpresentableLogicalDevice(VkPhysicalDevice physicalDevice,
                                         VkDevice &logicalDevice) {
 
-    std::set<uint32_t> uniqueQueueFamilies;
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, VK_NULL_HANDLE, true, false, true);
 
-    if (isGraphicsQueueSupportedByPhysicalDevice(physicalDevice)) {
-      uniqueQueueFamilies.insert(getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamilies, logicalDevice);
+    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
+                        logicalDevice);
   }
 
   void createSurface(VkSurfaceKHR &windowSurface) {
@@ -959,6 +1063,159 @@ private:
     } else {
       std::cout << "Created surface..." << std::endl;
     }
+  }
+
+  static uint32_t findMemoryType(uint32_t typeFilter,
+                                 VkMemoryPropertyFlags properties,
+                                 VkPhysicalDevice physicalDevice) {
+
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+      if ((typeFilter & (1 << i)) &&
+          (memProperties.memoryTypes[i].propertyFlags & properties) ==
+              properties) {
+        return i;
+      }
+    }
+
+    // If no suitable memory type is found
+    throw std::runtime_error("Failed to find suitable memory type!");
+  }
+
+  static void allocateMemoryForBuffer(VkPhysicalDevice physicalDevice,
+                                      VkDevice logicalDevice, VkBuffer buffer,
+                                      VkDeviceSize bufferSize,
+                                      VkMemoryPropertyFlags memoryProperties,
+                                      VkDeviceMemory &bufferMemory) {
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
+
+    assert(bufferSize == memRequirements.size);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(
+        memRequirements.memoryTypeBits, memoryProperties, physicalDevice);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to allocate buffer memory!");
+    }
+
+    if (vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to bind memory to buffer!");
+    }
+  }
+
+  static void createBuffer(VkPhysicalDevice physicalDevice,
+                           VkDevice logicalDevice, VkDeviceSize bufferSize,
+                           VkBufferUsageFlags bufferUsage,
+                           VkMemoryPropertyFlags memoryProperties,
+                           VkSurfaceKHR windowSurface, const bool needGraphics,
+                           const bool needPresent, const bool needTransfer,
+                           VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = bufferSize;
+    bufferInfo.usage = bufferUsage;
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, windowSurface, needGraphics, needPresent, needTransfer);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
+      bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+      bufferInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      bufferInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
+    } else {
+      bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      bufferInfo.queueFamilyIndexCount = 0;     // Optional
+      bufferInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
+
+    if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to create buffer!");
+    }
+
+    allocateMemoryForBuffer(physicalDevice, logicalDevice, buffer, bufferSize,
+                            memoryProperties, bufferMemory);
+  }
+
+  static void allocateMemoryForImage(VkPhysicalDevice physicalDevice,
+                                     VkDevice logicalDevice, VkImage image,
+                                     VkMemoryPropertyFlags memoryProperties,
+                                     VkDeviceMemory &imageMemory) {
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(
+        memRequirements.memoryTypeBits, memoryProperties, physicalDevice);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to allocate image memory!");
+    }
+
+    if (vkBindImageMemory(logicalDevice, image, imageMemory, 0) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to bind memory to image!");
+    }
+  }
+
+  static void createImage(VkPhysicalDevice physicalDevice,
+                          VkDevice logicalDevice, uint32_t width,
+                          uint32_t height, VkFormat format,
+                          VkImageUsageFlags imageUsage,
+                          VkMemoryPropertyFlags memoryProperties,
+                          VkSurfaceKHR windowSurface, const bool needGraphics,
+                          const bool needPresent, const bool needTransfer,
+                          VkImage &image, VkDeviceMemory &imageMemory) {
+
+    VkImageCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    createInfo.imageType = VK_IMAGE_TYPE_2D;
+    createInfo.extent.width = width;
+    createInfo.extent.height = height;
+    createInfo.extent.depth = 1;
+    createInfo.mipLevels = 1;
+    createInfo.arrayLayers = 1;
+    createInfo.format = format;
+    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    createInfo.usage = imageUsage;
+    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, windowSurface, needGraphics, needPresent, needTransfer);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
+      createInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+      createInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      createInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
+    } else {
+      createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      createInfo.queueFamilyIndexCount = 0;     // Optional
+      createInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
+
+    if (vkCreateImage(logicalDevice, &createInfo, nullptr, &image) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to create image!");
+    }
+
+    allocateMemoryForImage(physicalDevice, logicalDevice, image,
+                           memoryProperties, imageMemory);
   }
 
   static void
@@ -979,7 +1236,8 @@ private:
 
   static void createSwapChainForPresentation(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-      GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
+      GLFWwindow *window, VkSurfaceKHR windowSurface,
+      const bool isImageTransferDestination, VkSwapchainKHR &swapChain,
       std::vector<VkImage> &swapChainImages, VkFormat &swapChainImageFormat,
       VkExtent2D &swapChainExtent) {
 
@@ -1007,23 +1265,23 @@ private:
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage =
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    // createInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
-    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-    uint32_t graphicsQueueFamilyIndex =
-        getGraphicsQueueFamilyIndex(physicalDevice);
-    uint32_t presentationQueueFamilyIndex =
-        getPresentationQueueFamilyIndex(physicalDevice, windowSurface);
-    uint32_t queueFamilyIndices[] = {graphicsQueueFamilyIndex,
-                                     presentationQueueFamilyIndex};
+    if (isImageTransferDestination) {
+      createInfo.imageUsage =
+          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    } else {
+      createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
 
-    if (graphicsQueueFamilyIndex != presentationQueueFamilyIndex) {
+    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
+        physicalDevice, windowSurface, /*needGraphics=*/true,
+        /*needPresent=*/true, /*needTransfer=*/isImageTransferDestination);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
       createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-      createInfo.queueFamilyIndexCount = 2;
-      createInfo.pQueueFamilyIndices = queueFamilyIndices;
+      createInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      createInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
     } else {
       createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
       createInfo.queueFamilyIndexCount = 0;     // Optional
@@ -1058,81 +1316,18 @@ private:
   static void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
                                              VkDevice logicalDevice,
                                              uint32_t width, uint32_t height,
-                                             VkFormat format, VkImage &image) {
-    VkImageCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    createInfo.imageType = VK_IMAGE_TYPE_2D;
-    createInfo.extent.width = width;
-    createInfo.extent.height = height;
-    createInfo.extent.depth = 1;
-    createInfo.mipLevels = 1;
-    createInfo.arrayLayers = 1;
-    createInfo.format = format;
-    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    createInfo.usage =
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+                                             VkFormat format, VkImage &image,
+                                             VkDeviceMemory &imageMemory) {
+    createImage(physicalDevice, logicalDevice, width, height, format,
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_NULL_HANDLE,
+                /*needGraphics=*/true, /*needPresent=*/false,
+                /*needTransfer=*/true, image, imageMemory);
 
-    if (vkCreateImage(logicalDevice, &createInfo, nullptr, &image) !=
-        VK_SUCCESS) {
-      throw std::runtime_error(
-          "Failed to create image for unpresentable device");
-    } else {
-      std::cout << "Creating image for unpresentable device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
-  }
-
-  static uint32_t findMemoryType(uint32_t typeFilter,
-                                 VkMemoryPropertyFlags properties,
-                                 VkPhysicalDevice physicalDevice) {
-
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-      if ((typeFilter & (1 << i)) &&
-          (memProperties.memoryTypes[i].propertyFlags & properties) ==
-              properties) {
-        return i;
-      }
-    }
-
-    // If no suitable memory type is found
-    throw std::runtime_error("Failed to find suitable memory type!");
-  }
-
-  static void allocateMemoryForUnpresentableDeviceImage(
-      VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage image,
-      VkDeviceMemory &imageMemory) {
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex =
-        findMemoryType(memRequirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
-
-    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) !=
-        VK_SUCCESS) {
-      throw std::runtime_error(
-          "Failed to allocate memory for unpresentable images!");
-    } else {
-      std::cout << "Creating memory for image for Device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
-
-    if (vkBindImageMemory(logicalDevice, image, imageMemory, 0) != VK_SUCCESS) {
-      throw std::runtime_error("Failed to bind memory to unpresentable image!");
-    } else {
-      std::cout << "Binding memory to image for Device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
+    std::cout
+        << "Created Image and allocated memory for unpresentable device \""
+        << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static VkImageViewCreateInfo fillImageViewCreateInfo(VkImage image,
@@ -1347,10 +1542,15 @@ private:
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescription = Vertex::getAttributeDescriptions();
+
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount =
+        static_cast<uint32_t>(attributeDescription.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType =
@@ -1559,6 +1759,27 @@ private:
     }
   }
 
+  static void createVertexBuffer(VkPhysicalDevice physicalDevice,
+                                 VkDevice logicalDevice, VkBuffer &vertexBuffer,
+                                 VkDeviceMemory &vertexBufferMemory) {
+
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    createBuffer(physicalDevice, logicalDevice, bufferSize,
+                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 VK_NULL_HANDLE, /*needGraphics=*/true, /*needPresent=*/false,
+                 /*needTransfer=*/true, vertexBuffer, vertexBufferMemory);
+
+    std::cout << "Created vertex buffer and Allocated memory for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+
+    void *data;
+    vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(logicalDevice, vertexBufferMemory);
+  }
+
   static void
   createCommandBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                        VkCommandPool commandPool,
@@ -1582,7 +1803,7 @@ private:
 
   static void recordCommandBufferForPresentation(
       VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
-      uint32_t imageIndex, VkRenderPass renderPass,
+      VkBuffer vertexBuffer, uint32_t imageIndex, VkRenderPass renderPass,
       std::vector<VkFramebuffer> &frameBuffers, VkExtent2D extent,
       VkPipeline graphicsPipeline, const bool isDynamicViewPortAndScissor) {
 
@@ -1618,6 +1839,10 @@ private:
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       graphicsPipeline);
 
+    VkBuffer vertexBuffers[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -1635,7 +1860,7 @@ private:
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     }
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1738,9 +1963,9 @@ private:
 
   static void recordCommandBufferForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
-      VkImage image, VkRenderPass renderPass, VkFramebuffer frameBuffer,
-      VkExtent2D extent, VkPipeline graphicsPipeline, VkBuffer stagingBuffer,
-      const bool isDynamicViewPortAndScissor) {
+      VkBuffer vertexBuffer, VkImage image, VkRenderPass renderPass,
+      VkFramebuffer frameBuffer, VkExtent2D extent, VkPipeline graphicsPipeline,
+      VkBuffer stagingBuffer, const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1772,6 +1997,11 @@ private:
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       graphicsPipeline);
 
+    VkBuffer vertexBuffers[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -1789,7 +2019,7 @@ private:
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     }
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1923,43 +2153,26 @@ private:
                                   VkBuffer &stagingBuffer,
                                   VkDeviceMemory &stagingBufferMemory,
                                   void *&stagingBufferData,
-                                  VkBufferUsageFlags bufferFlags,
+                                  VkBufferUsageFlags bufferUsage,
                                   const bool isPresentableStagingBufferSizeSet,
                                   size_t &stagingBufferSize) {
 
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = extent.width * extent.height * 4; // 4 for (RGBA)
-    bufferInfo.usage = bufferFlags;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkDeviceSize bufferSize = extent.width * extent.height * 4; // 4 for (RGBA)
 
-    vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &stagingBuffer);
+    createBuffer(physicalDevice, logicalDevice, bufferSize, bufferUsage,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 VK_NULL_HANDLE, /*needGraphics=*/false,
+                 /*needPresent=*/false, /*needTransfer=*/true, stagingBuffer,
+                 stagingBufferMemory);
 
-    VkMemoryRequirements bufferMemRequirements;
-    vkGetBufferMemoryRequirements(logicalDevice, stagingBuffer,
-                                  &bufferMemRequirements);
-    assert(bufferInfo.size == bufferMemRequirements.size);
-
-    VkMemoryAllocateInfo bufferAllocInfo{};
-    bufferAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    bufferAllocInfo.allocationSize = bufferMemRequirements.size;
-    bufferAllocInfo.memoryTypeIndex =
-        findMemoryType(bufferMemRequirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       physicalDevice);
-
-    vkAllocateMemory(logicalDevice, &bufferAllocInfo, nullptr,
-                     &stagingBufferMemory);
-    vkBindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory, 0);
-
-    vkMapMemory(logicalDevice, stagingBufferMemory, 0,
-                bufferMemRequirements.size, 0, &stagingBufferData);
+    vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0,
+                &stagingBufferData);
 
     if (isPresentableStagingBufferSizeSet) {
-      assert(stagingBufferSize == bufferMemRequirements.size);
+      assert(stagingBufferSize == bufferSize);
     } else {
-      stagingBufferSize = bufferMemRequirements.size;
+      stagingBufferSize = bufferSize;
     }
   }
 
@@ -2035,7 +2248,7 @@ private:
 
     createSurface(presentableWindowSurface);
 
-    pickPhysicalDevice(presentableWindowSurface);
+    pickPhysicalDevice(instance, presentableWindowSurface);
 
     createPresentableLogicalDevice(presentablePhysicalDevice,
                                    presentableWindowSurface,
@@ -2048,9 +2261,9 @@ private:
 
     createSwapChainForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice, window,
-        presentableWindowSurface, presentableSwapChain,
-        presentableSwapChainImages, presentableSwapChainImageFormat,
-        presentableSwapChainExtent);
+        presentableWindowSurface, isSplitRenderPresentMode,
+        presentableSwapChain, presentableSwapChainImages,
+        presentableSwapChainImageFormat, presentableSwapChainExtent);
 
     createImageViewsForPresentation(
         presentableSwapChainImages, presentableSwapChainImageFormat,
@@ -2078,6 +2291,9 @@ private:
 
     createCommandPool(presentablePhysicalDevice, presentableLogicalDevice,
                       presentableCommandPool);
+
+    createVertexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
+                       presentableVertexBuffer, presentableVertexBufferMemory);
 
     createCommandBuffers(presentablePhysicalDevice, presentableLogicalDevice,
                          presentableCommandPool, presentableCommandBuffers);
@@ -2109,6 +2325,10 @@ private:
     unpresentableCommandPools.resize(unpresentablePhysicalDevices.size());
     unpresentableCommandBuffers.resize(unpresentablePhysicalDevices.size());
 
+    unpresentableVertexBuffers.resize(unpresentablePhysicalDevices.size());
+    unpresentableVertexBuffersMemories.resize(
+        unpresentablePhysicalDevices.size());
+
     unpresentableRenderingFinishedSemaphores.resize(
         unpresentablePhysicalDevices.size());
     unpresentableInterDeviceFences.resize(unpresentablePhysicalDevices.size());
@@ -2129,11 +2349,8 @@ private:
       createUnpresentableDeviceImage(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           presentableSwapChainExtent.width, presentableSwapChainExtent.height,
-          presentableSwapChainImageFormat, unpresentableDeviceImages[i]);
-
-      allocateMemoryForUnpresentableDeviceImage(
-          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          unpresentableDeviceImages[i], unpresentableDeviceImageMemories[i]);
+          presentableSwapChainImageFormat, unpresentableDeviceImages[i],
+          unpresentableDeviceImageMemories[i]);
 
       createImageViewForUnpresentableDevice(
           unpresentableDeviceImages[i], presentableSwapChainImageFormat,
@@ -2164,6 +2381,10 @@ private:
                         unpresentableLogicalDevices[i],
                         unpresentableCommandPools[i]);
 
+      createVertexBuffer(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableVertexBuffers[i], unpresentableVertexBuffersMemories[i]);
+
       createCommandBuffers(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableCommandPools[i], unpresentableCommandBuffers[i]);
@@ -2190,6 +2411,15 @@ private:
       VkRenderPass renderPass,
       std::vector<VkFramebuffer> &swapChainFrameBuffers) {
 
+#ifdef HANDLE_WINDOW_MINIMIZATION
+    int window_width = 0, window_height = 0;
+    glfwGetFramebufferSize(window, &window_width, &window_height);
+    while (window_width == 0 || window_height == 0) {
+      glfwWaitEvents();
+      glfwGetFramebufferSize(window, &window_width, &window_height);
+    }
+#endif // HANDLE_WINDOW_MINIMIZATION
+
     vkDeviceWaitIdle(logicalDevice);
 
     cleanupSwapChainOfPresentableDevice(logicalDevice, swapChain,
@@ -2197,7 +2427,8 @@ private:
                                         swapChainImageViews);
 
     createSwapChainForPresentation(physicalDevice, logicalDevice, window,
-                                   windowSurface, swapChain, swapChainImages,
+                                   windowSurface, isSplitRenderPresentMode,
+                                   swapChain, swapChainImages,
                                    swapChainImageFormat, swapChainExtent);
     createImageViewsForPresentation(swapChainImages, swapChainImageFormat,
                                     physicalDevice, logicalDevice,
@@ -2248,10 +2479,8 @@ private:
         logicalDevice, image, imageMemory, imageView, frameBuffer);
 
     createUnpresentableDeviceImage(physicalDevice, logicalDevice, extent.width,
-                                   extent.height, imageFormat, image);
-
-    allocateMemoryForUnpresentableDeviceImage(physicalDevice, logicalDevice,
-                                              image, imageMemory);
+                                   extent.height, imageFormat, image,
+                                   imageMemory);
 
     createImageViewForUnpresentableDevice(image, imageFormat, physicalDevice,
                                           logicalDevice, imageView);
@@ -2272,6 +2501,7 @@ private:
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
                  VkPipeline graphicsPipeline,
                  std::vector<VkCommandBuffer> commandBuffers,
+                 VkBuffer vertexBuffer,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
                  std::vector<VkFence> inFlightFences,
@@ -2305,8 +2535,8 @@ private:
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
     recordCommandBufferForPresentation(
-        physicalDevice, commandBuffers[currentFrame], imageIndex, renderPass,
-        swapChainFrameBuffers, extent, graphicsPipeline,
+        physicalDevice, commandBuffers[currentFrame], vertexBuffer, imageIndex,
+        renderPass, swapChainFrameBuffers, extent, graphicsPipeline,
         isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo{};
@@ -2347,7 +2577,11 @@ private:
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+        frameBufferResized) {
+
+      frameBufferResized = false;
+
       recreateSwapChainForPresentableDevice(
           physicalDevice, logicalDevice, window, windowSurface, swapChain,
           swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
@@ -2368,6 +2602,7 @@ private:
                   VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
                   VkFramebuffer &frameBuffer_unp,
                   std::vector<VkCommandBuffer> &commandBuffers_unp,
+                  VkBuffer vertexBuffer_unp,
                   std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
                   std::vector<VkFence> &interDeviceFences_unp,
                   std::vector<VkBuffer> &stagingBuffers_unp,
@@ -2398,9 +2633,10 @@ private:
     vkResetCommandBuffer(commandBuffers_unp[currentFrame], 0);
 
     recordCommandBufferForUnpresentableDevice(
-        physicalDevice_unp, commandBuffers_unp[currentFrame], image_unp,
-        renderPass_unp, frameBuffer_unp, extent, graphicsPipeline_unp,
-        stagingBuffers_unp[currentFrame], isDynamicViewPortAndScissor);
+        physicalDevice_unp, commandBuffers_unp[currentFrame], vertexBuffer_unp,
+        image_unp, renderPass_unp, frameBuffer_unp, extent,
+        graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
+        isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo_unp{};
     submitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2519,7 +2755,11 @@ private:
 
     result = vkQueuePresentKHR(presentQueue_p, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+        frameBufferResized) {
+
+      frameBufferResized = false;
+
       recreateSwapChainForPresentableDevice(
           physicalDevice_p, logicalDevice_p, window, windowSurface_p,
           swapChain_p, swapChainImages_p, swapChainImageViews_p,
@@ -2549,7 +2789,7 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#if 0
+#ifndef SPLIT_RENDER_PRESENT_MODE
       drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
                 graphicsQueueForPresentable, presentationQueueForPresentable,
                 window, presentableWindowSurface, presentableSwapChain,
@@ -2557,18 +2797,18 @@ private:
                 presentableSwapChainImageFormat, presentableSwapChainExtent,
                 presentableRenderPass, presentableSwapChainFrameBuffers,
                 presentableGraphicsPipeline, presentableCommandBuffers,
-                presentableImageAvailableSemaphores,
+                presentableVertexBuffer, presentableImageAvailableSemaphores,
                 presentableRenderingFinishedSemaphores,
                 presentableInFlightFences,
                 DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#else
+#else  // SPLIT_RENDER_PRESENT_MODE
       drawFrame2(
           unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
           graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
           unpresentableDeviceImageMemories[0], unpresentableDeviceImageViews[0],
           presentableSwapChainImageFormat, unpresentableRenderPasses[0],
           unpresentableGraphicsPipelines[0], unpresentableDeviceFrameBuffers[0],
-          unpresentableCommandBuffers[0],
+          unpresentableCommandBuffers[0], unpresentableVertexBuffers[0],
           unpresentableRenderingFinishedSemaphores[0],
           unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
           unpresentableStagingBuffersMemories[0],
@@ -2585,7 +2825,7 @@ private:
           presentableInFlightFences, presentableStagingBuffers,
           presentableStagingBuffersMemories, presentableStagingBuffersData,
           stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#endif
+#endif // SPLIT_RENDER_PRESENT_MODE
     }
 
     vkQueueWaitIdle(graphicsQueueForPresentable);
@@ -2646,6 +2886,11 @@ private:
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
           unpresentableDeviceFrameBuffers[i]);
 
+      vkDestroyBuffer(unpresentableLogicalDevices[i],
+                      unpresentableVertexBuffers[i], nullptr);
+      vkFreeMemory(unpresentableLogicalDevices[i],
+                   unpresentableVertexBuffersMemories[i], nullptr);
+
       vkDestroyPipeline(unpresentableLogicalDevices[i],
                         unpresentableGraphicsPipelines[i], nullptr);
 
@@ -2671,6 +2916,11 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    vkDestroyBuffer(presentableLogicalDevice, presentableVertexBuffer, nullptr);
+
+    vkFreeMemory(presentableLogicalDevice, presentableVertexBufferMemory,
+                 nullptr);
 
     vkDestroyPipeline(presentableLogicalDevice, presentableGraphicsPipeline,
                       nullptr);
