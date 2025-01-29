@@ -751,6 +751,51 @@ struct DeviceQueueCommandUnitSet {
         });
   }
 
+  uint32_t getDeviceGraphicsQueueIndex(void) const {
+    std::optional<uint32_t> graphicsQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isGraphicsQueue) {
+            graphicsQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(graphicsQueueIndex.has_value());
+    return graphicsQueueIndex.value();
+  }
+
+  uint32_t getDevicePresentQueueIndex(void) const {
+    std::optional<uint32_t> presentQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isPresentQueue) {
+            presentQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(presentQueueIndex.has_value());
+    return presentQueueIndex.value();
+  }
+
+  uint32_t getDeviceTransferQueueIndex(void) const {
+    std::optional<uint32_t> transferQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isTransferQueue) {
+            transferQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(transferQueueIndex.has_value());
+    return transferQueueIndex.value();
+  }
+
   VkQueue getDeviceGraphicsQueue(void) const {
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     forEachConstDeviceQueueCommandUnit(
