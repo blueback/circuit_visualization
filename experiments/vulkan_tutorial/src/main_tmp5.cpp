@@ -2696,23 +2696,56 @@ private:
             currentFrame),
         image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &region);
 
-    VkBufferMemoryBarrier barrierAfterCopy{};
-    barrierAfterCopy.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    barrierAfterCopy.srcQueueFamilyIndex =
+    VkBufferMemoryBarrier bufferBarrierAfterCopy{};
+    bufferBarrierAfterCopy.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufferBarrierAfterCopy.srcQueueFamilyIndex =
         deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
-    barrierAfterCopy.dstQueueFamilyIndex =
+    bufferBarrierAfterCopy.dstQueueFamilyIndex =
         deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
-    barrierAfterCopy.buffer = stagingBuffer;
-    barrierAfterCopy.offset = 0;
-    barrierAfterCopy.size = stagingBufferSize;
-    barrierAfterCopy.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrierAfterCopy.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    bufferBarrierAfterCopy.buffer = stagingBuffer;
+    bufferBarrierAfterCopy.offset = 0;
+    bufferBarrierAfterCopy.size = stagingBufferSize;
+    bufferBarrierAfterCopy.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufferBarrierAfterCopy.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
 
     vkCmdPipelineBarrier(
         deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
             currentFrame),
-        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
-        nullptr, 1, &barrierAfterCopy, 0, nullptr);
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0,
+        nullptr, 1, &bufferBarrierAfterCopy, 0, nullptr);
+
+    VkImageMemoryBarrier imageBarrierAfterCopy{};
+    imageBarrierAfterCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageBarrierAfterCopy.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imageBarrierAfterCopy.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    if (deviceQueueCommandUnitSet.getDeviceGraphicsQueue() !=
+        deviceQueueCommandUnitSet.getDeviceTransferQueue()) {
+      imageBarrierAfterCopy.srcQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
+      imageBarrierAfterCopy.dstQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceGraphicsQueueIndex();
+    } else {
+      imageBarrierAfterCopy.srcQueueFamilyIndex =
+          VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
+      imageBarrierAfterCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    }
+    imageBarrierAfterCopy.image = image;
+    imageBarrierAfterCopy.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBarrierAfterCopy.subresourceRange.baseMipLevel = 0;
+    imageBarrierAfterCopy.subresourceRange.levelCount = 1;
+    imageBarrierAfterCopy.subresourceRange.baseArrayLayer = 0;
+    imageBarrierAfterCopy.subresourceRange.layerCount = 1;
+
+    imageBarrierAfterCopy.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    imageBarrierAfterCopy.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0,
+        nullptr, 1, &imageBarrierAfterCopy);
 
     if (vkEndCommandBuffer(
             deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
