@@ -3844,6 +3844,7 @@ private:
 
   void mainLoop() {
     VkCommandBuffer tmp_CommandBuffers[MAX_FRAMES_IN_FLIGHT];
+    assert(unpresentablePhysicalDevices.size());
     createCommandBuffers(unpresentablePhysicalDevices[0],
                          unpresentableLogicalDevices[0],
                          unpresentableDeviceQueueCommandUnitSet[0]
