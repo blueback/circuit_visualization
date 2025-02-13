@@ -2308,10 +2308,11 @@ private:
   static void createCommandPool(VkPhysicalDevice physicalDevice,
                                 VkDevice logicalDevice,
                                 uint32_t queueFamilyIndex,
+                                VkCommandPoolCreateFlags commandPoolFlags,
                                 VkCommandPool &commandPool) {
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.flags = commandPoolFlags;
     poolInfo.queueFamilyIndex = queueFamilyIndex;
 
     if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) !=
@@ -2353,6 +2354,7 @@ private:
             const bool isTransferQueue) {
           createCommandPool(physicalDevice, logicalDevice,
                             deviceQueueCommandUnit.queueIndex,
+                            VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                             deviceQueueCommandUnit.queueCommandPool);
 
           createCommandBuffers(physicalDevice, logicalDevice,
@@ -2377,25 +2379,95 @@ private:
   }
 
   static void
+  copyBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+             const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+             VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize) {
+
+    VkCommandPool commandPool;
+    createCommandPool(physicalDevice, logicalDevice,
+                      deviceQueueCommandUnitSet.getDeviceTransferQueueIndex(),
+                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, commandPool);
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+      throw std::runtime_error("failed to begin command buffer recording");
+    }
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = bufferSize;
+
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+      throw std::runtime_error("failed to end the recording of command buffer");
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    if (vkQueueSubmit(deviceQueueCommandUnitSet.getDeviceTransferQueue(), 1,
+                      &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+      throw std::runtime_error("failed to submit command to queue");
+    }
+
+    vkQueueWaitIdle(deviceQueueCommandUnitSet.getDeviceTransferQueue());
+
+    vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+
+    vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+  }
+
+  static void
   createVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
                      VkBuffer &vertexBuffer,
                      VkDeviceMemory &vertexBufferMemory) {
 
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+    VkBuffer vertexStagingBuffer;
+    VkDeviceMemory vertexStagingBufferMemory;
     createBuffer(physicalDevice, logicalDevice, deviceQueueCommandUnitSet,
-                 bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                 bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 vertexBuffer, vertexBufferMemory);
+                 vertexStagingBuffer, vertexStagingBufferMemory);
+
+    void *data;
+    vkMapMemory(logicalDevice, vertexStagingBufferMemory, 0, bufferSize, 0,
+                &data);
+    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(logicalDevice, vertexStagingBufferMemory);
+
+    createBuffer(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
     std::cout << "Created vertex buffer and Allocated memory for device \""
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
 
-    void *data;
-    vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(logicalDevice, vertexBufferMemory);
+    copyBuffer(physicalDevice, logicalDevice, deviceQueueCommandUnitSet,
+               vertexStagingBuffer, vertexBuffer, bufferSize);
+
+    vkDestroyBuffer(logicalDevice, vertexStagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, vertexStagingBufferMemory, nullptr);
   }
 
   static void recordCommandBufferForPresentation(
