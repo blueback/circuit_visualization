@@ -1678,10 +1678,8 @@ private:
   createBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
                VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
-               VkMemoryPropertyFlags memoryProperties,
-               VkSurfaceKHR windowSurface, const bool needGraphics,
-               const bool needPresent, const bool needTransfer,
-               VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+               VkMemoryPropertyFlags memoryProperties, VkBuffer &buffer,
+               VkDeviceMemory &bufferMemory) {
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1741,9 +1739,7 @@ private:
               const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
               uint32_t width, uint32_t height, VkFormat format,
               VkImageUsageFlags imageUsage,
-              VkMemoryPropertyFlags memoryProperties,
-              VkSurfaceKHR windowSurface, const bool needGraphics,
-              const bool needPresent, const bool needTransfer, VkImage &image,
+              VkMemoryPropertyFlags memoryProperties, VkImage &image,
               VkDeviceMemory &imageMemory) {
 
     VkImageCreateInfo createInfo{};
@@ -1890,9 +1886,7 @@ private:
                 height, format,
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_NULL_HANDLE,
-                /*needGraphics=*/true, /*needPresent=*/false,
-                /*needTransfer=*/true, image, imageMemory);
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, imageMemory);
 
     std::cout
         << "Created Image and allocated memory for unpresentable device \""
@@ -2393,8 +2387,7 @@ private:
                  bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 VK_NULL_HANDLE, /*needGraphics=*/true, /*needPresent=*/false,
-                 /*needTransfer=*/true, vertexBuffer, vertexBufferMemory);
+                 vertexBuffer, vertexBufferMemory);
 
     std::cout << "Created vertex buffer and Allocated memory for device \""
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
@@ -2900,8 +2893,6 @@ private:
                  bufferSize, bufferUsage,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 VK_NULL_HANDLE, /*needGraphics=*/false,
-                 /*needPresent=*/false, /*needTransfer=*/true,
                  imageStagingBuffer, imageStagingBufferMemory);
 
     vkMapMemory(logicalDevice, imageStagingBufferMemory, 0, bufferSize, 0,
