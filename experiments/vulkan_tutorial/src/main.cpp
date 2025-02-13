@@ -925,9 +925,16 @@ struct Vertex {
   }
 };
 
-const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+// const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+//                                       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+//                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 class HelloTriangleApplication {
 public:
@@ -971,6 +978,9 @@ private:
   VkBuffer presentableVertexBuffer;
   VkDeviceMemory presentableVertexBufferMemory;
 
+  VkBuffer presentableIndexBuffer;
+  VkDeviceMemory presentableIndexBufferMemory;
+
   std::vector<VkSemaphore> presentableImageAvailableSemaphores;
   std::vector<VkSemaphore> presentableRenderingFinishedSemaphores;
   std::vector<VkFence> presentableInFlightFences;
@@ -999,6 +1009,9 @@ private:
 
   std::vector<VkBuffer> unpresentableVertexBuffers;
   std::vector<VkDeviceMemory> unpresentableVertexBuffersMemories;
+
+  std::vector<VkBuffer> unpresentableIndexBuffers;
+  std::vector<VkDeviceMemory> unpresentableIndexBuffersMemories;
 
   std::vector<std::vector<VkSemaphore>>
       unpresentableRenderingFinishedSemaphores;
@@ -2470,11 +2483,44 @@ private:
     vkFreeMemory(logicalDevice, vertexStagingBufferMemory, nullptr);
   }
 
+  static void
+  createIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+                    const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+                    VkBuffer &indexBuffer, VkDeviceMemory &indexBufferMemory) {
+    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+    VkBuffer indicesStagingBuffer;
+    VkDeviceMemory indicesStagingBufferMemory;
+    createBuffer(physicalDevice, logicalDevice, deviceQueueCommandUnitSet,
+                 bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 indicesStagingBuffer, indicesStagingBufferMemory);
+
+    void *data;
+    vkMapMemory(logicalDevice, indicesStagingBufferMemory, 0, bufferSize, 0,
+                &data);
+    memcpy(data, indices.data(), (size_t)bufferSize);
+    vkUnmapMemory(logicalDevice, indicesStagingBufferMemory);
+
+    createBuffer(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+    copyBuffer(physicalDevice, logicalDevice, deviceQueueCommandUnitSet,
+               indicesStagingBuffer, indexBuffer, bufferSize);
+
+    vkDestroyBuffer(logicalDevice, indicesStagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, indicesStagingBufferMemory, nullptr);
+  }
+
   static void recordCommandBufferForPresentation(
       VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
-      VkBuffer vertexBuffer, uint32_t imageIndex, VkRenderPass renderPass,
-      std::vector<VkFramebuffer> &frameBuffers, VkExtent2D extent,
-      VkPipeline graphicsPipeline, const bool isDynamicViewPortAndScissor) {
+      VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t imageIndex,
+      VkRenderPass renderPass, std::vector<VkFramebuffer> &frameBuffers,
+      VkExtent2D extent, VkPipeline graphicsPipeline,
+      const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2512,6 +2558,8 @@ private:
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -2529,7 +2577,8 @@ private:
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     }
 
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0,
+                     0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -2633,9 +2682,9 @@ private:
   static void recordCommandBufferForUnpresentableDevice(
       VkPhysicalDevice physicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      const uint32_t currentFrame, VkBuffer vertexBuffer, VkImage image,
-      VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent,
-      VkPipeline graphicsPipeline, VkBuffer stagingBuffer,
+      const uint32_t currentFrame, VkBuffer vertexBuffer, VkBuffer indexBuffer,
+      VkImage image, VkRenderPass renderPass, VkFramebuffer frameBuffer,
+      VkExtent2D extent, VkPipeline graphicsPipeline, VkBuffer stagingBuffer,
       size_t stagingBufferSize, const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -2683,6 +2732,11 @@ private:
             currentFrame),
         0, 1, vertexBuffers, offsets);
 
+    vkCmdBindIndexBuffer(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -2706,9 +2760,10 @@ private:
           0, 1, &scissor);
     }
 
-    vkCmdDraw(deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
-                  currentFrame),
-              static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    vkCmdDrawIndexed(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
@@ -3104,6 +3159,10 @@ private:
                        presentableDeviceQueueCommandUnitSet,
                        presentableVertexBuffer, presentableVertexBufferMemory);
 
+    createIndexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
+                      presentableDeviceQueueCommandUnitSet,
+                      presentableIndexBuffer, presentableIndexBufferMemory);
+
     createSyncObjectsForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice,
         presentableImageAvailableSemaphores,
@@ -3131,6 +3190,10 @@ private:
 
     unpresentableVertexBuffers.resize(unpresentablePhysicalDevices.size());
     unpresentableVertexBuffersMemories.resize(
+        unpresentablePhysicalDevices.size());
+
+    unpresentableIndexBuffers.resize(unpresentablePhysicalDevices.size());
+    unpresentableIndexBuffersMemories.resize(
         unpresentablePhysicalDevices.size());
 
     unpresentableRenderingFinishedSemaphores.resize(
@@ -3190,6 +3253,11 @@ private:
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceQueueCommandUnitSet[i],
           unpresentableVertexBuffers[i], unpresentableVertexBuffersMemories[i]);
+
+      createIndexBuffer(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i],
+          unpresentableIndexBuffers[i], unpresentableIndexBuffersMemories[i]);
 
       createSyncObjectsForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -3310,6 +3378,7 @@ private:
                  VkRenderPass renderPass,
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
                  VkPipeline graphicsPipeline, VkBuffer vertexBuffer,
+                 VkBuffer indexBuffer,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
                  std::vector<VkFence> inFlightFences,
@@ -3349,8 +3418,9 @@ private:
         physicalDevice,
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
             currentFrame),
-        vertexBuffer, imageIndex, renderPass, swapChainFrameBuffers, extent,
-        graphicsPipeline, isDynamicViewPortAndScissor);
+        vertexBuffer, indexBuffer, imageIndex, renderPass,
+        swapChainFrameBuffers, extent, graphicsPipeline,
+        isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -3420,6 +3490,7 @@ private:
       VkImageView &imageView_unp, VkFormat &imageFormat_unp,
       VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
       VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
+      VkBuffer indexBuffer_unp,
       std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
       std::vector<VkFence> &interDeviceFences_unp,
       std::vector<VkBuffer> &stagingBuffers_unp,
@@ -3454,9 +3525,10 @@ private:
 
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
-          vertexBuffer_unp, image_unp, renderPass_unp, frameBuffer_unp, extent,
-          graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
-          stagingBufferSize, isDynamicViewPortAndScissor);
+          vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
+          frameBuffer_unp, extent, graphicsPipeline_unp,
+          stagingBuffers_unp[currentFrame], stagingBufferSize,
+          isDynamicViewPortAndScissor);
 
       VkSubmitInfo submitInfo_unp{};
       VkCommandBuffer commandBuffers_unp[] = {
@@ -3493,9 +3565,10 @@ private:
 
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
-          vertexBuffer_unp, image_unp, renderPass_unp, frameBuffer_unp, extent,
-          graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
-          stagingBufferSize, isDynamicViewPortAndScissor);
+          vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
+          frameBuffer_unp, extent, graphicsPipeline_unp,
+          stagingBuffers_unp[currentFrame], stagingBufferSize,
+          isDynamicViewPortAndScissor);
 
       VkSubmitInfo renderSubmitInfo_unp{};
       VkCommandBuffer renderCommandBuffers_unp[] = {
@@ -3700,7 +3773,7 @@ private:
                   presentableSwapChainImageFormat, presentableSwapChainExtent,
                   presentableRenderPass, presentableSwapChainFrameBuffers,
                   presentableGraphicsPipeline, presentableVertexBuffer,
-                  presentableImageAvailableSemaphores,
+                  presentableIndexBuffer, presentableImageAvailableSemaphores,
                   presentableRenderingFinishedSemaphores,
                   presentableInFlightFences,
                   DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
@@ -3712,6 +3785,7 @@ private:
             unpresentableDeviceImageViews[0], presentableSwapChainImageFormat,
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
             unpresentableDeviceFrameBuffers[0], unpresentableVertexBuffers[0],
+            unpresentableIndexBuffers[0],
             unpresentableRenderingFinishedSemaphores[0],
             unpresentableInterDeviceFences[0],
             unpresentableImageStagingBuffers[0],
@@ -3795,6 +3869,11 @@ private:
           unpresentableDeviceFrameBuffers[i]);
 
       vkDestroyBuffer(unpresentableLogicalDevices[i],
+                      unpresentableIndexBuffers[i], nullptr);
+      vkFreeMemory(unpresentableLogicalDevices[i],
+                   unpresentableIndexBuffersMemories[i], nullptr);
+
+      vkDestroyBuffer(unpresentableLogicalDevices[i],
                       unpresentableVertexBuffers[i], nullptr);
       vkFreeMemory(unpresentableLogicalDevices[i],
                    unpresentableVertexBuffersMemories[i], nullptr);
@@ -3825,6 +3904,10 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    vkDestroyBuffer(presentableLogicalDevice, presentableIndexBuffer, nullptr);
+    vkFreeMemory(presentableLogicalDevice, presentableIndexBufferMemory,
+                 nullptr);
 
     vkDestroyBuffer(presentableLogicalDevice, presentableVertexBuffer, nullptr);
 
