@@ -975,10 +975,10 @@ private:
   std::vector<VkSemaphore> presentableRenderingFinishedSemaphores;
   std::vector<VkFence> presentableInFlightFences;
 
-  std::vector<VkBuffer> presentableStagingBuffers;
-  std::vector<VkDeviceMemory> presentableStagingBuffersMemories;
-  std::vector<void *> presentableStagingBuffersData;
-  size_t stagingBufferSize;
+  std::vector<VkBuffer> presentableImageStagingBuffers;
+  std::vector<VkDeviceMemory> presentableImageStagingBuffersMemories;
+  std::vector<void *> presentableImageStagingBuffersData;
+  size_t imageStagingBufferSize;
 
   uint32_t currentFrame = 0;
 
@@ -1004,9 +1004,10 @@ private:
       unpresentableRenderingFinishedSemaphores;
   std::vector<std::vector<VkFence>> unpresentableInterDeviceFences;
 
-  std::vector<std::vector<VkBuffer>> unpresentableStagingBuffers;
-  std::vector<std::vector<VkDeviceMemory>> unpresentableStagingBuffersMemories;
-  std::vector<std::vector<void *>> unpresentableStagingBuffersData;
+  std::vector<std::vector<VkBuffer>> unpresentableImageStagingBuffers;
+  std::vector<std::vector<VkDeviceMemory>>
+      unpresentableImageStagingBuffersMemories;
+  std::vector<std::vector<void *>> unpresentableImageStagingBuffersData;
 
   bool frameBufferResized = false;
 
@@ -2884,13 +2885,14 @@ private:
     }
   }
 
-  static void createStagingBuffer(
+  static void createImageStagingBuffer(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      VkExtent2D extent, VkBuffer &stagingBuffer,
-      VkDeviceMemory &stagingBufferMemory, void *&stagingBufferData,
+      VkExtent2D extent, VkBuffer &imageStagingBuffer,
+      VkDeviceMemory &imageStagingBufferMemory, void *&imageStagingBufferData,
       VkBufferUsageFlags bufferUsage,
-      const bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
+      const bool isPresentableImageStagingBufferSizeSet,
+      size_t &imageStagingBufferSize) {
 
     VkDeviceSize bufferSize = extent.width * extent.height * 4; // 4 for (RGBA)
 
@@ -2899,86 +2901,92 @@ private:
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  VK_NULL_HANDLE, /*needGraphics=*/false,
-                 /*needPresent=*/false, /*needTransfer=*/true, stagingBuffer,
-                 stagingBufferMemory);
+                 /*needPresent=*/false, /*needTransfer=*/true,
+                 imageStagingBuffer, imageStagingBufferMemory);
 
-    vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0,
-                &stagingBufferData);
+    vkMapMemory(logicalDevice, imageStagingBufferMemory, 0, bufferSize, 0,
+                &imageStagingBufferData);
 
-    if (isPresentableStagingBufferSizeSet) {
-      assert(stagingBufferSize == bufferSize);
+    if (isPresentableImageStagingBufferSizeSet) {
+      assert(imageStagingBufferSize == bufferSize);
     } else {
-      stagingBufferSize = bufferSize;
+      imageStagingBufferSize = bufferSize;
     }
   }
 
-  static void createStagingBuffers(
+  static void createImageStagingBuffers(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
-      std::vector<VkDeviceMemory> &stagingBuffersMemories,
-      std::vector<void *> &stagingBuffersData, VkBufferUsageFlags bufferFlags,
-      bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
+      VkExtent2D extent, std::vector<VkBuffer> &imageStagingBuffers,
+      std::vector<VkDeviceMemory> &imageStagingBuffersMemories,
+      std::vector<void *> &imageStagingBuffersData,
+      VkBufferUsageFlags bufferFlags,
+      bool isPresentableImageStagingBufferSizeSet,
+      size_t &imageStagingBufferSize) {
 
-    stagingBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    stagingBuffersMemories.resize(MAX_FRAMES_IN_FLIGHT);
-    stagingBuffersData.resize(MAX_FRAMES_IN_FLIGHT);
+    imageStagingBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    imageStagingBuffersMemories.resize(MAX_FRAMES_IN_FLIGHT);
+    imageStagingBuffersData.resize(MAX_FRAMES_IN_FLIGHT);
 
     std::cout << "Creating staging buffers for device \""
               << getPhysicalDeviceName(physicalDevice) << "\" ..." << std::endl;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       std::cout << "For frame [" << i << "]" << std::endl;
-      createStagingBuffer(
+      createImageStagingBuffer(
           physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent,
-          stagingBuffers[i], stagingBuffersMemories[i], stagingBuffersData[i],
-          bufferFlags, isPresentableStagingBufferSizeSet, stagingBufferSize);
-      if (!isPresentableStagingBufferSizeSet) {
-        isPresentableStagingBufferSizeSet = true;
+          imageStagingBuffers[i], imageStagingBuffersMemories[i],
+          imageStagingBuffersData[i], bufferFlags,
+          isPresentableImageStagingBufferSizeSet, imageStagingBufferSize);
+      if (!isPresentableImageStagingBufferSizeSet) {
+        isPresentableImageStagingBufferSizeSet = true;
       }
     }
   }
 
-  static void createStagingBuffersForPresentableDevice(
+  static void createImageStagingBuffersForPresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
-      std::vector<VkDeviceMemory> &stagingBuffersMemories,
-      std::vector<void *> &stagingBuffersData, size_t &stagingBufferSize) {
+      VkExtent2D extent, std::vector<VkBuffer> &imageStagingBuffers,
+      std::vector<VkDeviceMemory> &imageStagingBuffersMemories,
+      std::vector<void *> &imageStagingBuffersData,
+      size_t &imageStagingBufferSize) {
 
-    createStagingBuffers(
+    createImageStagingBuffers(
         physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent,
-        stagingBuffers, stagingBuffersMemories, stagingBuffersData,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, false, stagingBufferSize);
+        imageStagingBuffers, imageStagingBuffersMemories,
+        imageStagingBuffersData, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, false,
+        imageStagingBufferSize);
   }
 
-  static void createStagingBuffersForUnpresentableDevice(
+  static void createImageStagingBuffersForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
-      std::vector<VkDeviceMemory> &stagingBuffersMemories,
-      std::vector<void *> &stagingBuffersData,
-      const bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
+      VkExtent2D extent, std::vector<VkBuffer> &imageStagingBuffers,
+      std::vector<VkDeviceMemory> &imageStagingBuffersMemories,
+      std::vector<void *> &imageStagingBuffersData,
+      const bool isPresentableImageStagingBufferSizeSet,
+      size_t &imageStagingBufferSize) {
 
-    createStagingBuffers(physicalDevice, logicalDevice,
-                         deviceQueueCommandUnitSet, extent, stagingBuffers,
-                         stagingBuffersMemories, stagingBuffersData,
-                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                         isPresentableStagingBufferSizeSet, stagingBufferSize);
+    createImageStagingBuffers(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent,
+        imageStagingBuffers, imageStagingBuffersMemories,
+        imageStagingBuffersData, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        isPresentableImageStagingBufferSizeSet, imageStagingBufferSize);
   }
 
-  static void destroyStagingBufferAndMemory(
-      VkDevice logicalDevice, std::vector<VkBuffer> &stagingBuffers,
-      std::vector<VkDeviceMemory> &stagingBuffersMemories,
-      std::vector<void *> &stagingBuffersData) {
+  static void destroyImageStagingBufferAndMemory(
+      VkDevice logicalDevice, std::vector<VkBuffer> &imageStagingBuffers,
+      std::vector<VkDeviceMemory> &imageStagingBuffersMemories,
+      std::vector<void *> &imageStagingBuffersData) {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-      vkDestroyBuffer(logicalDevice, stagingBuffers[i], nullptr);
-      vkFreeMemory(logicalDevice, stagingBuffersMemories[i], nullptr);
+      vkDestroyBuffer(logicalDevice, imageStagingBuffers[i], nullptr);
+      vkFreeMemory(logicalDevice, imageStagingBuffersMemories[i], nullptr);
     }
-    stagingBuffers.clear();
-    stagingBuffersMemories.clear();
-    stagingBuffersData.clear();
+    imageStagingBuffers.clear();
+    imageStagingBuffersMemories.clear();
+    imageStagingBuffersData.clear();
   }
 
   void initVulkan() {
@@ -3038,11 +3046,11 @@ private:
         presentableImageAvailableSemaphores,
         presentableRenderingFinishedSemaphores, presentableInFlightFences);
 
-    createStagingBuffersForPresentableDevice(
+    createImageStagingBuffersForPresentableDevice(
         presentablePhysicalDevice, presentableLogicalDevice,
         presentableDeviceQueueCommandUnitSet, presentableSwapChainExtent,
-        presentableStagingBuffers, presentableStagingBuffersMemories,
-        presentableStagingBuffersData, stagingBufferSize);
+        presentableImageStagingBuffers, presentableImageStagingBuffersMemories,
+        presentableImageStagingBuffersData, imageStagingBufferSize);
 
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceQueueCommandUnitSet.resize(
@@ -3066,10 +3074,12 @@ private:
         unpresentablePhysicalDevices.size());
     unpresentableInterDeviceFences.resize(unpresentablePhysicalDevices.size());
 
-    unpresentableStagingBuffers.resize(unpresentablePhysicalDevices.size());
-    unpresentableStagingBuffersMemories.resize(
+    unpresentableImageStagingBuffers.resize(
         unpresentablePhysicalDevices.size());
-    unpresentableStagingBuffersData.resize(unpresentablePhysicalDevices.size());
+    unpresentableImageStagingBuffersMemories.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableImageStagingBuffersData.resize(
+        unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createLogicalDevice(unpresentablePhysicalDevices[i],
@@ -3123,12 +3133,13 @@ private:
           unpresentableRenderingFinishedSemaphores[i],
           unpresentableInterDeviceFences[i]);
 
-      createStagingBuffersForUnpresentableDevice(
+      createImageStagingBuffersForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceQueueCommandUnitSet[i], presentableSwapChainExtent,
-          unpresentableStagingBuffers[i],
-          unpresentableStagingBuffersMemories[i],
-          unpresentableStagingBuffersData[i], true, stagingBufferSize);
+          unpresentableImageStagingBuffers[i],
+          unpresentableImageStagingBuffersMemories[i],
+          unpresentableImageStagingBuffersData[i], true,
+          imageStagingBufferSize);
     }
   }
 
@@ -3183,20 +3194,20 @@ private:
       std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
       std::vector<void *> &stagingBuffersData_unp) {
 
-    destroyStagingBufferAndMemory(logicalDevice_p, stagingBuffers_p,
-                                  stagingBuffersMemories_p,
-                                  stagingBuffersData_p);
+    destroyImageStagingBufferAndMemory(logicalDevice_p, stagingBuffers_p,
+                                       stagingBuffersMemories_p,
+                                       stagingBuffersData_p);
 
-    destroyStagingBufferAndMemory(logicalDevice_unp, stagingBuffers_unp,
-                                  stagingBuffersMemories_unp,
-                                  stagingBuffersData_unp);
+    destroyImageStagingBufferAndMemory(logicalDevice_unp, stagingBuffers_unp,
+                                       stagingBuffersMemories_unp,
+                                       stagingBuffersData_unp);
 
-    createStagingBuffersForPresentableDevice(
+    createImageStagingBuffersForPresentableDevice(
         physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p, extent,
         stagingBuffers_p, stagingBuffersMemories_p, stagingBuffersData_p,
         stagingBufferSize);
 
-    createStagingBuffersForUnpresentableDevice(
+    createImageStagingBuffersForUnpresentableDevice(
         physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
         extent, stagingBuffers_unp, stagingBuffersMemories_unp,
         stagingBuffersData_unp, true, stagingBufferSize);
@@ -3639,9 +3650,10 @@ private:
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
             unpresentableDeviceFrameBuffers[0], unpresentableVertexBuffers[0],
             unpresentableRenderingFinishedSemaphores[0],
-            unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
-            unpresentableStagingBuffersMemories[0],
-            unpresentableStagingBuffersData[0], presentablePhysicalDevice,
+            unpresentableInterDeviceFences[0],
+            unpresentableImageStagingBuffers[0],
+            unpresentableImageStagingBuffersMemories[0],
+            unpresentableImageStagingBuffersData[0], presentablePhysicalDevice,
             presentableLogicalDevice, presentableDeviceQueueCommandUnitSet,
             window, presentableWindowSurface, presentableSwapChain,
             presentableSwapChainImages, presentableSwapChainImageViews,
@@ -3650,9 +3662,10 @@ private:
             presentableImageAvailableSemaphores,
             presentableRenderingFinishedSemaphores, // using this for
                                                     // copyFinishSemaphore
-            presentableInFlightFences, presentableStagingBuffers,
-            presentableStagingBuffersMemories, presentableStagingBuffersData,
-            stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+            presentableInFlightFences, presentableImageStagingBuffers,
+            presentableImageStagingBuffersMemories,
+            presentableImageStagingBuffersData, imageStagingBufferSize,
+            DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
       }
     }
 
@@ -3699,10 +3712,10 @@ private:
   void cleanup() {
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
-      destroyStagingBufferAndMemory(unpresentableLogicalDevices[i],
-                                    unpresentableStagingBuffers[i],
-                                    unpresentableStagingBuffersMemories[i],
-                                    unpresentableStagingBuffersData[i]);
+      destroyImageStagingBufferAndMemory(
+          unpresentableLogicalDevices[i], unpresentableImageStagingBuffers[i],
+          unpresentableImageStagingBuffersMemories[i],
+          unpresentableImageStagingBuffersData[i]);
 
       destroySyncObjectsForUnpresentableDevice(
           unpresentableLogicalDevices[i],
@@ -3733,9 +3746,10 @@ private:
                           unpresentableRenderPasses[i], nullptr);
     }
 
-    destroyStagingBufferAndMemory(
-        presentableLogicalDevice, presentableStagingBuffers,
-        presentableStagingBuffersMemories, presentableStagingBuffersData);
+    destroyImageStagingBufferAndMemory(presentableLogicalDevice,
+                                       presentableImageStagingBuffers,
+                                       presentableImageStagingBuffersMemories,
+                                       presentableImageStagingBuffersData);
 
     destroySyncObjectsForPresentation(
         presentableLogicalDevice, presentableImageAvailableSemaphores,
