@@ -61,6 +61,840 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   }
 }
 
+struct DeviceQueueCommandUnit {
+  int queueIndex;
+  VkQueue queue;
+  VkCommandPool queueCommandPool;
+  VkCommandBuffer queueCommandBuffers[MAX_FRAMES_IN_FLIGHT];
+};
+
+struct DeviceQueueCommandUnitSet {
+  enum DeviceQueueSetType {
+    PRESENTABLE_DEVICE_ALL_THREE_SEPERATE_QUEUE_SET_TYPE,
+    PRESENTABLE_DEVICE_GRAPHICS_SEPERATE_QUEUE_SET_TYPE,
+    PRESENTABLE_DEVICE_PRESENT_SEPERATE_QUEUE_SET_TYPE,
+    PRESENTABLE_DEVICE_TRANSFER_SEPERATE_QUEUE_SET_TYPE,
+    PRESENTABLE_DEVICE_ALL_THREE_SAME_QUEUE_SET_TYPE,
+    UNPRESENTABLE_DEVICE_SEPERATE_QUEUE_SET_TYPE,
+    UNPRESENTABLE_DEVICE_SAME_QUEUE_SET_TYPE
+  };
+  DeviceQueueSetType type;
+  union {
+    struct {
+      DeviceQueueCommandUnit graphicsQueueCommandUnit;
+      DeviceQueueCommandUnit presentQueueCommandUnit;
+      DeviceQueueCommandUnit transferQueueCommandUnit;
+    } presentable_device_all_three_seperate_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit graphicsQueueCommandUnit;
+      DeviceQueueCommandUnit presentAndTransferQueueCommandUnit;
+    } presentable_device_graphics_seperate_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit presentQueueCommandUnit;
+      DeviceQueueCommandUnit graphicsAndTransferQueueCommandUnit;
+    } presentable_device_present_seperate_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit transferQueueCommandUnit;
+      DeviceQueueCommandUnit graphicsAndPresentQueueCommandUnit;
+    } presentable_device_transfer_seperate_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit unifiedQueueCommandUnit;
+    } presentable_device_all_three_same_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit graphicsQueueCommandUnit;
+      DeviceQueueCommandUnit transferQueueCommandUnit;
+    } unpresentable_device_seperate_queue_command_unit_set;
+    struct {
+      DeviceQueueCommandUnit graphicsAndTransferQueueCommandUnit;
+    } unpresentable_device_same_queue_command_unit_set;
+  } queue_command_unit_set;
+
+#define DEVICE_QUEUE_COMMAND_UNIT_ITERATOR(func_name)                             \
+  void func_name(                                                                 \
+      std::function<IteratorStatus(                                               \
+          DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit &,            \
+          const bool isGraphicsQueue, const bool isPresentQueue,                  \
+          const bool isTransferQueue)>                                            \
+          f) DEVICE_QUEUE_COMMAND_UNIT_IS_CONST {                                 \
+                                                                                  \
+    switch (type) {                                                               \
+    case PRESENTABLE_DEVICE_ALL_THREE_SEPERATE_QUEUE_SET_TYPE: {                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_all_three_seperate_queue_command_unit_set \
+                    .graphicsQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, false, false) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_all_three_seperate_queue_command_unit_set \
+                    .transferQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, false, true) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_all_three_seperate_queue_command_unit_set \
+                    .presentQueueCommandUnit;                                     \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, true, false) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case PRESENTABLE_DEVICE_GRAPHICS_SEPERATE_QUEUE_SET_TYPE: {                   \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_graphics_seperate_queue_command_unit_set  \
+                    .graphicsQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, false, false) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_graphics_seperate_queue_command_unit_set  \
+                    .presentAndTransferQueueCommandUnit;                          \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, true, true) == IterationBreak)       \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case PRESENTABLE_DEVICE_PRESENT_SEPERATE_QUEUE_SET_TYPE: {                    \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_present_seperate_queue_command_unit_set   \
+                    .presentQueueCommandUnit;                                     \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, true, false) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_present_seperate_queue_command_unit_set   \
+                    .graphicsAndTransferQueueCommandUnit;                         \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, false, true) == IterationBreak)       \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case PRESENTABLE_DEVICE_TRANSFER_SEPERATE_QUEUE_SET_TYPE: {                   \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_transfer_seperate_queue_command_unit_set  \
+                    .transferQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, false, true) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_transfer_seperate_queue_command_unit_set  \
+                    .graphicsAndPresentQueueCommandUnit;                          \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, true, false) == IterationBreak)       \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case PRESENTABLE_DEVICE_ALL_THREE_SAME_QUEUE_SET_TYPE: {                      \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .presentable_device_all_three_same_queue_command_unit_set     \
+                    .unifiedQueueCommandUnit;                                     \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, true, true) == IterationBreak)        \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case UNPRESENTABLE_DEVICE_SEPERATE_QUEUE_SET_TYPE: {                          \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .unpresentable_device_seperate_queue_command_unit_set         \
+                    .graphicsQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, false, false) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+                                                                                  \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .unpresentable_device_seperate_queue_command_unit_set         \
+                    .transferQueueCommandUnit;                                    \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, false, false, true) == IterationBreak)      \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    case UNPRESENTABLE_DEVICE_SAME_QUEUE_SET_TYPE: {                              \
+      {                                                                           \
+        DEVICE_QUEUE_COMMAND_UNIT_IS_CONST DeviceQueueCommandUnit                 \
+            &deviceQueueCommandUnit =                                             \
+                queue_command_unit_set                                            \
+                    .unpresentable_device_same_queue_command_unit_set             \
+                    .graphicsAndTransferQueueCommandUnit;                         \
+                                                                                  \
+        if (f(deviceQueueCommandUnit, true, false, true) == IterationBreak)       \
+          return;                                                                 \
+      }                                                                           \
+      break;                                                                      \
+    }                                                                             \
+    }                                                                             \
+  }
+
+#define DEVICE_QUEUE_COMMAND_UNIT_IS_CONST const
+  DEVICE_QUEUE_COMMAND_UNIT_ITERATOR(forEachConstDeviceQueueCommandUnit);
+#undef DEVICE_QUEUE_COMMAND_UNIT_IS_CONST
+#define DEVICE_QUEUE_COMMAND_UNIT_IS_CONST
+  DEVICE_QUEUE_COMMAND_UNIT_ITERATOR(forEachNonConstDeviceQueueCommandUnit);
+
+  static void forEachQueueFamilyOfPhysicalDevice(
+      VkPhysicalDevice physicalDevice,
+      std::function<IteratorStatus(int, VkQueueFamilyProperties)> f) {
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
+                                             nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamiliesProps(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
+                                             queueFamiliesProps.data());
+
+    int queueIndex = 0;
+    for (const auto &queueFamilyProps : queueFamiliesProps) {
+      if (f(queueIndex++, queueFamilyProps) == IterationBreak) {
+        return;
+      }
+    }
+  }
+
+  static bool isPresentationSupportedByQueueOnSurface(
+      VkPhysicalDevice physicalDevice, int queueIndex, VkSurfaceKHR surface) {
+    VkBool32 queueSupportPresentation = false;
+    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueIndex, surface,
+                                         &queueSupportPresentation);
+
+    if (queueSupportPresentation) {
+      return true;
+    }
+    return false;
+  }
+
+  static bool
+  isGraphicsSupportedByQueue(VkQueueFamilyProperties queueFamilyProps) {
+    return queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+  }
+
+  static bool
+  isTransferSupportedByQueue(VkQueueFamilyProperties queueFamilyProps) {
+    return queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT;
+  }
+
+  static bool
+  isComputeSupportedByQueue(VkQueueFamilyProperties queueFamilyProps) {
+    return queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT;
+  }
+
+  static bool isPhysicalDevicePresentable(VkPhysicalDevice physicalDevice,
+                                          VkSurfaceKHR surface) {
+
+    bool presentable = false;
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice, [&](int queueIndex, VkQueueFamilyProperties) {
+          if (isPresentationSupportedByQueueOnSurface(physicalDevice,
+                                                      queueIndex, surface)) {
+            presentable = true;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+    return presentable;
+  }
+
+  static bool checkAndFillPresentableDeviceAllThreeSeperateQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> graphicsQueueIndex;
+    std::optional<int> presentQueueIndex;
+    std::optional<int> transferQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps)) {
+            graphicsQueueIndex = queueIndex;
+          } else if (isPresentationSupportedByQueueOnSurface(
+                         physicalDevice, queueIndex, windowSurface)) {
+            presentQueueIndex = queueIndex;
+          } else if (isTransferSupportedByQueue(queueFamilyProps)) {
+            transferQueueIndex = queueIndex;
+          }
+          return IterationContinue;
+        });
+
+    if (graphicsQueueIndex.has_value() && transferQueueIndex.has_value() &&
+        presentQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          PRESENTABLE_DEVICE_ALL_THREE_SEPERATE_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_all_three_seperate_queue_command_unit_set
+          .graphicsQueueCommandUnit.queueIndex = graphicsQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_all_three_seperate_queue_command_unit_set
+          .presentQueueCommandUnit.queueIndex = presentQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_all_three_seperate_queue_command_unit_set
+          .transferQueueCommandUnit.queueIndex = transferQueueIndex.value();
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool checkAndFillPresentableDeviceGraphicsSeperateQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> graphicsSeperateQueueIndex;
+    std::optional<int> presentAndTransferQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps)) {
+            graphicsSeperateQueueIndex = queueIndex;
+          } else if (isPresentationSupportedByQueueOnSurface(
+                         physicalDevice, queueIndex, windowSurface) &&
+                     isTransferSupportedByQueue(queueFamilyProps)) {
+            presentAndTransferQueueIndex = queueIndex;
+          }
+          return IterationContinue;
+        });
+
+    if (presentAndTransferQueueIndex.has_value() &&
+        graphicsSeperateQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          PRESENTABLE_DEVICE_GRAPHICS_SEPERATE_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_graphics_seperate_queue_command_unit_set
+          .graphicsQueueCommandUnit.queueIndex =
+          graphicsSeperateQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_graphics_seperate_queue_command_unit_set
+          .presentAndTransferQueueCommandUnit.queueIndex =
+          presentAndTransferQueueIndex.value();
+      return true;
+    }
+    return false;
+  }
+
+  static bool checkAndFillPresentableDeviceTransferSeperateQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> transferSeperateQueueIndex;
+    std::optional<int> graphicsAndPresentQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isTransferSupportedByQueue(queueFamilyProps)) {
+            transferSeperateQueueIndex = queueIndex;
+          } else if (isGraphicsSupportedByQueue(queueFamilyProps) &&
+                     isPresentationSupportedByQueueOnSurface(
+                         physicalDevice, queueIndex, windowSurface)) {
+            graphicsAndPresentQueueIndex = queueIndex;
+          }
+          return IterationContinue;
+        });
+
+    if (graphicsAndPresentQueueIndex.has_value() &&
+        transferSeperateQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          PRESENTABLE_DEVICE_TRANSFER_SEPERATE_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_transfer_seperate_queue_command_unit_set
+          .transferQueueCommandUnit.queueIndex =
+          transferSeperateQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_transfer_seperate_queue_command_unit_set
+          .graphicsAndPresentQueueCommandUnit.queueIndex =
+          graphicsAndPresentQueueIndex.value();
+      return true;
+    }
+    return false;
+  }
+
+  static bool checkAndFillPresentableDevicePresentSeperateQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> presentSeperateQueueIndex;
+    std::optional<int> graphicsAndTransferQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isPresentationSupportedByQueueOnSurface(
+                  physicalDevice, queueIndex, windowSurface)) {
+            presentSeperateQueueIndex = queueIndex;
+          } else if (isGraphicsSupportedByQueue(queueFamilyProps) &&
+                     isTransferSupportedByQueue(queueFamilyProps)) {
+            graphicsAndTransferQueueIndex = queueIndex;
+          }
+          return IterationContinue;
+        });
+
+    if (graphicsAndTransferQueueIndex.has_value() &&
+        presentSeperateQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          PRESENTABLE_DEVICE_PRESENT_SEPERATE_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_present_seperate_queue_command_unit_set
+          .presentQueueCommandUnit.queueIndex =
+          presentSeperateQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_present_seperate_queue_command_unit_set
+          .graphicsAndTransferQueueCommandUnit.queueIndex =
+          graphicsAndTransferQueueIndex.value();
+      return true;
+    }
+    return false;
+  }
+
+  static bool checkAndFillPresentableDeviceAllThreeSameQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> unifiedQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps) &&
+              isPresentationSupportedByQueueOnSurface(
+                  physicalDevice, queueIndex, windowSurface) &&
+              isTransferSupportedByQueue(queueFamilyProps)) {
+            unifiedQueueIndex = queueIndex;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+
+    if (unifiedQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          PRESENTABLE_DEVICE_ALL_THREE_SAME_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .presentable_device_all_three_same_queue_command_unit_set
+          .unifiedQueueCommandUnit.queueIndex = unifiedQueueIndex.value();
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool checkAndFillUnpresentableDeviceSeperateQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> graphicsQueueIndex;
+    std::optional<int> transferQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps)) {
+            graphicsQueueIndex = queueIndex;
+          } else if (isTransferSupportedByQueue(queueFamilyProps)) {
+            transferQueueIndex = queueIndex;
+          }
+          return IterationContinue;
+        });
+
+    if (graphicsQueueIndex.has_value() && transferQueueIndex.has_value()) {
+      deviceQueueSet.type = DeviceQueueCommandUnitSet::
+          UNPRESENTABLE_DEVICE_SEPERATE_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .unpresentable_device_seperate_queue_command_unit_set
+          .graphicsQueueCommandUnit.queueIndex = graphicsQueueIndex.value();
+      deviceQueueSet.queue_command_unit_set
+          .unpresentable_device_seperate_queue_command_unit_set
+          .transferQueueCommandUnit.queueIndex = transferQueueIndex.value();
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool checkAndFillUnpresentableDeviceSameQueueIndexSet(
+      VkPhysicalDevice physicalDevice, VkSurfaceKHR windowSurface,
+      DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    std::optional<int> unifiedQueueIndex;
+
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps) &&
+              isTransferSupportedByQueue(queueFamilyProps)) {
+            unifiedQueueIndex = queueIndex;
+            return IterationBreak;
+          }
+          return IterationContinue;
+        });
+
+    if (unifiedQueueIndex.has_value()) {
+      deviceQueueSet.type =
+          DeviceQueueCommandUnitSet::UNPRESENTABLE_DEVICE_SAME_QUEUE_SET_TYPE;
+      deviceQueueSet.queue_command_unit_set
+          .unpresentable_device_same_queue_command_unit_set
+          .graphicsAndTransferQueueCommandUnit.queueIndex =
+          unifiedQueueIndex.value();
+      return true;
+    }
+
+    return false;
+  }
+
+  static void
+  decideAndFillQueueSetIndices(VkPhysicalDevice physicalDevice,
+                               VkSurfaceKHR windowSurface,
+                               DeviceQueueCommandUnitSet &deviceQueueSet) {
+
+    if (isPhysicalDevicePresentable(physicalDevice, windowSurface)) {
+      if (checkAndFillPresentableDeviceAllThreeSameQueueIndexSet(
+              physicalDevice, windowSurface, deviceQueueSet)) {
+        return;
+      }
+    } else {
+      if (checkAndFillUnpresentableDeviceSameQueueIndexSet(
+              physicalDevice, windowSurface, deviceQueueSet)) {
+        return;
+      }
+
+      if (checkAndFillUnpresentableDeviceSeperateQueueIndexSet(
+              physicalDevice, windowSurface, deviceQueueSet)) {
+        return;
+      }
+    }
+
+    if (!isSplitRenderPresentMode) {
+      if (isPhysicalDevicePresentable(physicalDevice, windowSurface)) {
+        if (checkAndFillPresentableDeviceTransferSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillPresentableDeviceGraphicsSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet) ||
+            checkAndFillPresentableDevicePresentSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillPresentableDeviceAllThreeSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+      } else {
+        if (checkAndFillUnpresentableDeviceSameQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillUnpresentableDeviceSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+      }
+    } else {
+      if (isPhysicalDevicePresentable(physicalDevice, windowSurface)) {
+        if (checkAndFillPresentableDeviceGraphicsSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillPresentableDevicePresentSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet) ||
+            checkAndFillPresentableDeviceTransferSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillPresentableDeviceAllThreeSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+      } else {
+        if (checkAndFillUnpresentableDeviceSameQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+
+        if (checkAndFillUnpresentableDeviceSeperateQueueIndexSet(
+                physicalDevice, windowSurface, deviceQueueSet)) {
+          return;
+        }
+      }
+    }
+  }
+
+  static bool
+  isGraphicsQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
+    bool hasGraphicsQueue = false;
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isGraphicsSupportedByQueue(queueFamilyProps)) {
+            hasGraphicsQueue = true;
+            return IterationBreak;
+          }
+
+          return IterationContinue;
+        });
+    return hasGraphicsQueue;
+  }
+
+  static bool
+  isComputeQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
+    bool hasComputeQueue = false;
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isComputeSupportedByQueue(queueFamilyProps)) {
+            hasComputeQueue = true;
+            return IterationBreak;
+          }
+
+          return IterationContinue;
+        });
+    return hasComputeQueue;
+  }
+
+  static bool
+  isTransferQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
+    bool hasTransferQueue = false;
+    forEachQueueFamilyOfPhysicalDevice(
+        physicalDevice,
+        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
+          if (isTransferSupportedByQueue(queueFamilyProps)) {
+            hasTransferQueue = true;
+            return IterationBreak;
+          }
+
+          return IterationContinue;
+        });
+    return hasTransferQueue;
+  }
+
+  static std::vector<uint32_t> getUniqueQueueFamiliesIndices(
+      const DeviceQueueCommandUnitSet &deviceQueueSet) {
+    std::vector<uint32_t> uniqueQueueFamiliesArray;
+
+    deviceQueueSet.forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          uniqueQueueFamiliesArray.push_back(deviceQueueCommandUnit.queueIndex);
+          return IterationContinue;
+        });
+
+    return uniqueQueueFamiliesArray;
+  }
+
+  static void
+  fetchAndFillDeviceQueueSet(VkDevice logicalDevice,
+                             DeviceQueueCommandUnitSet &deviceQueueSet) {
+    deviceQueueSet.forEachNonConstDeviceQueueCommandUnit(
+        [&](DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          vkGetDeviceQueue(logicalDevice, deviceQueueCommandUnit.queueIndex, 0,
+                           &(deviceQueueCommandUnit.queue));
+          return IterationContinue;
+        });
+  }
+
+  uint32_t getDeviceGraphicsQueueIndex(void) const {
+    std::optional<uint32_t> graphicsQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isGraphicsQueue) {
+            graphicsQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(graphicsQueueIndex.has_value());
+    return graphicsQueueIndex.value();
+  }
+
+  uint32_t getDevicePresentQueueIndex(void) const {
+    std::optional<uint32_t> presentQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isPresentQueue) {
+            presentQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(presentQueueIndex.has_value());
+    return presentQueueIndex.value();
+  }
+
+  uint32_t getDeviceTransferQueueIndex(void) const {
+    std::optional<uint32_t> transferQueueIndex;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isTransferQueue) {
+            transferQueueIndex = deviceQueueCommandUnit.queueIndex;
+          }
+          return IterationContinue;
+        });
+    assert(transferQueueIndex.has_value());
+    return transferQueueIndex.value();
+  }
+
+  VkQueue getDeviceGraphicsQueue(void) const {
+    VkQueue graphicsQueue = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isGraphicsQueue) {
+            graphicsQueue = deviceQueueCommandUnit.queue;
+          }
+          return IterationContinue;
+        });
+    return graphicsQueue;
+  }
+
+  VkQueue getDevicePresentQueue(void) const {
+    VkQueue presentQueue = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isPresentQueue) {
+            presentQueue = deviceQueueCommandUnit.queue;
+          }
+          return IterationContinue;
+        });
+    return presentQueue;
+  }
+
+  VkQueue getDeviceTransferQueue(void) const {
+    VkQueue transferQueue = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isTransferQueue) {
+            transferQueue = deviceQueueCommandUnit.queue;
+          }
+          return IterationContinue;
+        });
+    return transferQueue;
+  }
+
+  VkCommandBuffer getDeviceGraphicsQueueCommandBuffer(int index) const {
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isGraphicsQueue) {
+            commandBuffer = deviceQueueCommandUnit.queueCommandBuffers[index];
+          }
+          return IterationContinue;
+        });
+    return commandBuffer;
+  }
+
+  VkCommandBuffer getDeviceTransferQueueCommandBuffer(int index) const {
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isTransferQueue) {
+            commandBuffer = deviceQueueCommandUnit.queueCommandBuffers[index];
+          }
+          return IterationContinue;
+        });
+    return commandBuffer;
+  }
+
+  VkCommandPool getDeviceGraphicsQueueCommandPool(void) const {
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isGraphicsQueue) {
+            commandPool = deviceQueueCommandUnit.queueCommandPool;
+          }
+          return IterationContinue;
+        });
+    return commandPool;
+  }
+
+  VkCommandPool getDeviceTransferQueueCommandPool(void) const {
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          if (isTransferQueue) {
+            commandPool = deviceQueueCommandUnit.queueCommandPool;
+          }
+          return IterationContinue;
+        });
+    return commandPool;
+  }
+};
+
 struct Vertex {
   glm::vec2 pos;
   glm::vec3 color;
@@ -120,13 +954,7 @@ private:
   VkPhysicalDevice presentablePhysicalDevice = VK_NULL_HANDLE;
   VkDevice presentableLogicalDevice;
 
-  std::vector<VkPhysicalDevice> unpresentablePhysicalDevices;
-  std::vector<VkDevice> unpresentableLogicalDevices;
-
-  VkQueue graphicsQueueForPresentable;
-  std::vector<VkQueue> graphicsQueuesForUnpresentable;
-
-  VkQueue presentationQueueForPresentable;
+  DeviceQueueCommandUnitSet presentableDeviceQueueCommandUnitSet;
 
   VkSwapchainKHR presentableSwapChain;
   std::vector<VkImage> presentableSwapChainImages;
@@ -139,9 +967,6 @@ private:
   VkPipeline presentableGraphicsPipeline;
 
   std::vector<VkFramebuffer> presentableSwapChainFrameBuffers;
-
-  VkCommandPool presentableCommandPool;
-  std::vector<VkCommandBuffer> presentableCommandBuffers;
 
   VkBuffer presentableVertexBuffer;
   VkDeviceMemory presentableVertexBufferMemory;
@@ -157,6 +982,11 @@ private:
 
   uint32_t currentFrame = 0;
 
+  std::vector<VkPhysicalDevice> unpresentablePhysicalDevices;
+  std::vector<VkDevice> unpresentableLogicalDevices;
+
+  std::vector<DeviceQueueCommandUnitSet> unpresentableDeviceQueueCommandUnitSet;
+
   std::vector<VkImage> unpresentableDeviceImages;
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
@@ -166,9 +996,6 @@ private:
   std::vector<VkPipeline> unpresentableGraphicsPipelines;
 
   std::vector<VkFramebuffer> unpresentableDeviceFrameBuffers;
-
-  std::vector<VkCommandPool> unpresentableCommandPools;
-  std::vector<std::vector<VkCommandBuffer>> unpresentableCommandBuffers;
 
   std::vector<VkBuffer> unpresentableVertexBuffers;
   std::vector<VkDeviceMemory> unpresentableVertexBuffersMemories;
@@ -438,71 +1265,6 @@ private:
     }
   }
 
-  static void forEachQueueFamilyOfDevice(
-      VkPhysicalDevice physicalDevice,
-      std::function<IteratorStatus(int, VkQueueFamilyProperties)> f) {
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
-                                             nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamiliesProps(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount,
-                                             queueFamiliesProps.data());
-
-    int queueIndex = 0;
-    for (const auto &queueFamilyProps : queueFamiliesProps) {
-      if (f(queueIndex++, queueFamilyProps) == IterationBreak) {
-        return;
-      }
-    }
-  }
-
-  static bool isPresentationSupportedByQueueOnSurface(
-      VkPhysicalDevice physicalDevice, int queueIndex, VkSurfaceKHR surface) {
-    VkBool32 queueSupportPresentation = false;
-    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueIndex, surface,
-                                         &queueSupportPresentation);
-
-    if (queueSupportPresentation) {
-      return true;
-    }
-    return false;
-  }
-
-  static bool isPhysicalDevicePresentable(VkPhysicalDevice physicalDevice,
-                                          VkSurfaceKHR surface) {
-
-    bool presentable = false;
-    forEachQueueFamilyOfDevice(physicalDevice,
-                               [&](int queueIndex, VkQueueFamilyProperties) {
-                                 if (isPresentationSupportedByQueueOnSurface(
-                                         physicalDevice, queueIndex, surface)) {
-                                   presentable = true;
-                                   return IterationBreak;
-                                 }
-                                 return IterationContinue;
-                               });
-    return presentable;
-  }
-
-  static uint32_t
-  getPresentationQueueFamilyIndex(VkPhysicalDevice physicalDevice,
-                                  VkSurfaceKHR surface) {
-
-    std::optional<uint32_t> presentationQueueIndex;
-    forEachQueueFamilyOfDevice(physicalDevice,
-                               [&](int queueIndex, VkQueueFamilyProperties) {
-                                 if (isPresentationSupportedByQueueOnSurface(
-                                         physicalDevice, queueIndex, surface)) {
-                                   presentationQueueIndex = queueIndex;
-                                   return IterationBreak;
-                                 }
-                                 return IterationContinue;
-                               });
-    assert(presentationQueueIndex.has_value());
-    return presentationQueueIndex.value();
-  }
-
   static bool isPhysicalDeviceDedicatedGPU(VkPhysicalDevice physicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
 
@@ -550,99 +1312,6 @@ private:
   }
 
   static bool
-  isGraphicsQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
-    bool hasGraphicsQueue = false;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            hasGraphicsQueue = true;
-            return IterationBreak;
-          }
-
-          return IterationContinue;
-        });
-    return hasGraphicsQueue;
-  }
-
-  static uint32_t getGraphicsQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
-    std::optional<uint32_t> graphicsQueueIndex;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            graphicsQueueIndex = queueIndex;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
-    assert(graphicsQueueIndex.has_value());
-    return graphicsQueueIndex.value();
-  }
-
-  static bool
-  isComputeQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
-    bool hasComputeQueue = false;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            hasComputeQueue = true;
-            return IterationBreak;
-          }
-
-          return IterationContinue;
-        });
-    return hasComputeQueue;
-  }
-
-  static uint32_t getComputeQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
-    std::optional<uint32_t> computeQueueIndex;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            computeQueueIndex = queueIndex;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
-    assert(computeQueueIndex.has_value());
-    return computeQueueIndex.value();
-  }
-
-  static bool
-  isTransferQueueSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice) {
-    bool hasTransferQueue = false;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            hasTransferQueue = true;
-            return IterationBreak;
-          }
-
-          return IterationContinue;
-        });
-    return hasTransferQueue;
-  }
-
-  static uint32_t getTransferQueueFamilyIndex(VkPhysicalDevice physicalDevice) {
-    std::optional<uint32_t> transferQueueIndex;
-    forEachQueueFamilyOfDevice(
-        physicalDevice,
-        [&](int queueIndex, VkQueueFamilyProperties queueFamilyProps) {
-          if (queueFamilyProps.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            transferQueueIndex = queueIndex;
-            return IterationBreak;
-          }
-          return IterationContinue;
-        });
-    assert(transferQueueIndex.has_value());
-    return transferQueueIndex.value();
-  }
-
-  static bool
   isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
                                        const char *extensionName) {
     bool isExtensionSupported = false;
@@ -673,11 +1342,13 @@ private:
     printPhysicalDeviceExtensions(device);
     */
 
-    if (!isGraphicsQueueSupportedByPhysicalDevice(device)) {
+    if (!DeviceQueueCommandUnitSet::isGraphicsQueueSupportedByPhysicalDevice(
+            device)) {
       return false;
     }
 
-    if (!isTransferQueueSupportedByPhysicalDevice(device)) {
+    if (!DeviceQueueCommandUnitSet::isTransferQueueSupportedByPhysicalDevice(
+            device)) {
       return false;
     }
 
@@ -748,14 +1419,14 @@ private:
         return IterationContinue;
       }
 
-      if (isGeometryShaderSupportedByPhysicalDevice(device) &&
-          isGraphicsQueueSupportedByPhysicalDevice(device)) {
+      if (isGeometryShaderSupportedByPhysicalDevice(device)) {
         if (!presentablePhysicalDevice &&
-            isPhysicalDevicePresentable(device, windowSurface) &&
+            DeviceQueueCommandUnitSet::isPhysicalDevicePresentable(
+                device, windowSurface) &&
             isSwapChainAdequateForPresentation(device, windowSurface)) {
           std::cout << "    device can also render ON-screen" << std::endl;
           presentablePhysicalDevice = device;
-        } else if (isTransferQueueSupportedByPhysicalDevice(device)) {
+        } else {
           std::cout << "    device can only render OFF-screen" << std::endl;
           unpresentablePhysicalDevices.push_back(device);
         }
@@ -772,108 +1443,6 @@ private:
       throw std::runtime_error(
           "failed to find unpresentable GPUs with Vulkan support!");
     }
-  }
-
-  /*
-  struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    bool isComplete() {
-      return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-  };
-
-  QueueFamilyIndices findQueueFamilyIndices(VkPhysicalDevice device) {
-    QueueFamilyIndices indices;
-    // Logic to find graphics queue family to populate struct with
-    // Assign index to queue families that could be found
-    if (isGraphicsQueueSupportedByPhysicalDevice(device)) {
-      indices.graphicsFamily = getGraphicsQueueFamilyIndex(device);
-    }
-    if (isPhysicalDevicePresentable(device, surface)) {
-      indices.presentFamily = getPresentationQueueFamilyIndex(device, surface);
-    }
-    return indices;
-  }
-  */
-
-  static void createGraphicsQueue(VkPhysicalDevice physicalDevice,
-                                  VkDevice logicalDevice,
-                                  VkQueue &graphicsQueue) {
-
-    assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
-
-    vkGetDeviceQueue(logicalDevice, getGraphicsQueueFamilyIndex(physicalDevice),
-                     0, &graphicsQueue);
-
-    std::cout << "Created graphics queue for "
-              << getPhysicalDeviceName(physicalDevice) << std::endl;
-  }
-
-  static void createPresentationQueue(VkPhysicalDevice physicalDevice,
-                                      VkDevice logicalDevice,
-                                      VkSurfaceKHR windowSurface,
-                                      VkQueue &presentationQueue) {
-
-    assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-
-    vkGetDeviceQueue(
-        logicalDevice,
-        getPresentationQueueFamilyIndex(physicalDevice, windowSurface), 0,
-        &presentationQueue);
-
-    std::cout << "Created presentation queue for "
-              << getPhysicalDeviceName(physicalDevice) << std::endl;
-  }
-
-  static void createTransferQueue(VkPhysicalDevice physicalDevice,
-                                  VkDevice logicalDevice,
-                                  VkQueue &transferQueue) {
-
-    assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
-
-    vkGetDeviceQueue(logicalDevice, getTransferQueueFamilyIndex(physicalDevice),
-                     0, &transferQueue);
-
-    std::cout << "Created transfer queue for "
-              << getPhysicalDeviceName(physicalDevice) << std::endl;
-  }
-
-  static std::vector<uint32_t>
-  getUniqueQueueFamilies(VkPhysicalDevice physicalDevice,
-                         VkSurfaceKHR windowSurface, const bool needGraphics,
-                         const bool needPresent, const bool needTransfer) {
-    std::vector<uint32_t> uniqueQueueFamiliesArray;
-
-    std::set<uint32_t> uniqueQueueFamiliesSet;
-
-    if (needGraphics) {
-      assert(isGraphicsQueueSupportedByPhysicalDevice(physicalDevice));
-      uniqueQueueFamiliesSet.insert(
-          getGraphicsQueueFamilyIndex(physicalDevice));
-    }
-
-    if (needTransfer) {
-      assert(isTransferQueueSupportedByPhysicalDevice(physicalDevice));
-      uniqueQueueFamiliesSet.insert(
-          getTransferQueueFamilyIndex(physicalDevice));
-    }
-
-    if (needPresent) {
-      assert(windowSurface != VK_NULL_HANDLE);
-      assert(isPhysicalDevicePresentable(physicalDevice, windowSurface));
-      uniqueQueueFamiliesSet.insert(
-          getPresentationQueueFamilyIndex(physicalDevice, windowSurface));
-    } else {
-      assert(windowSurface == VK_NULL_HANDLE);
-    }
-
-    for (auto uniqueQueueFamily : uniqueQueueFamiliesSet) {
-      uniqueQueueFamiliesArray.push_back(uniqueQueueFamily);
-    }
-
-    return uniqueQueueFamiliesArray;
   }
 
   struct SwapChainSupportDetails {
@@ -986,9 +1555,17 @@ private:
     }
   }
 
-  void createLogicalDevice(VkPhysicalDevice physicalDevice,
-                           std::vector<uint32_t> &uniqueQueueFamiliesArray,
-                           VkDevice &logicalDevice) {
+  static void
+  createLogicalDevice(VkPhysicalDevice physicalDevice,
+                      VkSurfaceKHR windowSurface, VkDevice &logicalDevice,
+                      DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet) {
+
+    DeviceQueueCommandUnitSet::decideAndFillQueueSetIndices(
+        physicalDevice, windowSurface, deviceQueueCommandUnitSet);
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
+            deviceQueueCommandUnitSet);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     float queuePriority = 1.0f;
@@ -1031,27 +1608,12 @@ private:
       std::cout << "Created logical device for "
                 << getPhysicalDeviceName(physicalDevice) << std::endl;
     }
-  }
 
-  void createPresentableLogicalDevice(VkPhysicalDevice physicalDevice,
-                                      VkSurfaceKHR windowSurface,
-                                      VkDevice &logicalDevice) {
+    DeviceQueueCommandUnitSet::fetchAndFillDeviceQueueSet(
+        logicalDevice, deviceQueueCommandUnitSet);
 
-    std::vector<uint32_t> uniqueQueueFamiliesArray =
-        getUniqueQueueFamilies(physicalDevice, windowSurface, true, true, true);
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
-                        logicalDevice);
-  }
-
-  void createUnpresentableLogicalDevice(VkPhysicalDevice physicalDevice,
-                                        VkDevice &logicalDevice) {
-
-    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
-        physicalDevice, VK_NULL_HANDLE, true, false, true);
-
-    createLogicalDevice(physicalDevice, uniqueQueueFamiliesArray,
-                        logicalDevice);
+    std::cout << "Created Device Queues for Device "
+              << getPhysicalDeviceName(physicalDevice) << std::endl;
   }
 
   void createSurface(VkSurfaceKHR &windowSurface) {
@@ -1081,6 +1643,7 @@ private:
 
   static void createSwapChainForPresentation(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       GLFWwindow *window, VkSurfaceKHR windowSurface,
       const bool isImageTransferDestination, VkSwapchainKHR &swapChain,
       std::vector<VkImage> &swapChainImages, VkFormat &swapChainImageFormat,
@@ -1118,8 +1681,9 @@ private:
       createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     }
 
-    std::vector<uint32_t> uniqueQueueFamiliesArray = getUniqueQueueFamilies(
-        physicalDevice, windowSurface, true, true, isImageTransferDestination);
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
+            deviceQueueCommandUnitSet);
 
     if (uniqueQueueFamiliesArray.size() > 1) {
       createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -1157,10 +1721,10 @@ private:
     swapChainExtent = extent;
   }
 
-  static void createUnpresentableDeviceImage(VkPhysicalDevice physicalDevice,
-                                             VkDevice logicalDevice,
-                                             uint32_t width, uint32_t height,
-                                             VkFormat format, VkImage &image) {
+  static void createUnpresentableDeviceImage(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      uint32_t width, uint32_t height, VkFormat format, VkImage &image) {
     VkImageCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     createInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -1175,7 +1739,21 @@ private:
     createInfo.usage =
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
+            deviceQueueCommandUnitSet);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
+      createInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+      createInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      createInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
+    } else {
+      createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      createInfo.queueFamilyIndexCount = 0;     // Optional
+      createInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
 
     if (vkCreateImage(logicalDevice, &createInfo, nullptr, &image) !=
         VK_SUCCESS) {
@@ -1651,11 +2229,12 @@ private:
 
   static void createCommandPool(VkPhysicalDevice physicalDevice,
                                 VkDevice logicalDevice,
+                                uint32_t queueFamilyIndex,
                                 VkCommandPool &commandPool) {
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = getGraphicsQueueFamilyIndex(physicalDevice);
+    poolInfo.queueFamilyIndex = queueFamilyIndex;
 
     if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) !=
         VK_SUCCESS) {
@@ -1666,14 +2245,30 @@ private:
     }
   }
 
-  static void createVertexBuffer(VkPhysicalDevice physicalDevice,
-                                 VkDevice logicalDevice, VkBuffer &vertexBuffer,
-                                 VkDeviceMemory &vertexBufferMemory) {
+  static void
+  createVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+                     const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+                     VkBuffer &vertexBuffer,
+                     VkDeviceMemory &vertexBufferMemory) {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = sizeof(vertices[0]) * vertices.size();
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
+            deviceQueueCommandUnitSet);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
+      bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+      bufferInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      bufferInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
+    } else {
+      bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      bufferInfo.queueFamilyIndexCount = 0;     // Optional
+      bufferInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
 
     if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &vertexBuffer) !=
         VK_SUCCESS) {
@@ -1716,22 +2311,54 @@ private:
   static void
   createCommandBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                        VkCommandPool commandPool,
-                       std::vector<VkCommandBuffer> &commandBuffers) {
+                       VkCommandBuffer commandBuffers[MAX_FRAMES_IN_FLIGHT]) {
 
-    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+    allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo,
-                                 commandBuffers.data()) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers) !=
+        VK_SUCCESS) {
       throw std::runtime_error("failed to allocate command buffers!");
     } else {
       std::cout << "Created command buffers for Device \""
                 << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
+  }
+
+  static void createDeviceCommandPoolsAndBuffers(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet) {
+
+    deviceQueueCommandUnitSet.forEachNonConstDeviceQueueCommandUnit(
+        [&](DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          createCommandPool(physicalDevice, logicalDevice,
+                            deviceQueueCommandUnit.queueIndex,
+                            deviceQueueCommandUnit.queueCommandPool);
+
+          createCommandBuffers(physicalDevice, logicalDevice,
+                               deviceQueueCommandUnit.queueCommandPool,
+                               deviceQueueCommandUnit.queueCommandBuffers);
+          return IterationContinue;
+        });
+  }
+
+  static void destroyDeviceCommandPoolsAndBuffers(
+      VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet) {
+
+    deviceQueueCommandUnitSet.forEachConstDeviceQueueCommandUnit(
+        [&](const DeviceQueueCommandUnit &deviceQueueCommandUnit,
+            const bool isGraphicsQueue, const bool isPresentQueue,
+            const bool isTransferQueue) {
+          vkDestroyCommandPool(
+              logicalDevice, deviceQueueCommandUnit.queueCommandPool, nullptr);
+          return IterationContinue;
+        });
   }
 
   static void recordCommandBufferForPresentation(
@@ -1895,21 +2522,26 @@ private:
   }
 
   static void recordCommandBufferForUnpresentableDevice(
-      VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
-      VkBuffer vertexBuffer, VkImage image, VkRenderPass renderPass,
-      VkFramebuffer frameBuffer, VkExtent2D extent, VkPipeline graphicsPipeline,
-      VkBuffer stagingBuffer, const bool isDynamicViewPortAndScissor) {
+      VkPhysicalDevice physicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      const uint32_t currentFrame, VkBuffer vertexBuffer, VkImage image,
+      VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent,
+      VkPipeline graphicsPipeline, VkBuffer stagingBuffer,
+      size_t stagingBufferSize, const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0;                  // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(
+            deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+                currentFrame),
+            &beginInfo) != VK_SUCCESS) {
 
       throw std::runtime_error("failed to begin recording command buffer!");
     } else {
-      std::cout << "Begin recording command buffer for unpresentabl Device \""
+      std::cout << "Begin recording command buffer for unpresentable Device \""
                 << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
 
@@ -1924,16 +2556,23 @@ private:
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      graphicsPipeline);
+    vkCmdBindPipeline(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
 
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindVertexBuffers(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        0, 1, vertexBuffers, offsets);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -1948,13 +2587,80 @@ private:
     scissor.extent = extent;
 
     if (isDynamicViewPortAndScissor) {
-      vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-      vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+      vkCmdSetViewport(
+          deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame),
+          0, 1, &viewport);
+      vkCmdSetScissor(
+          deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame),
+          0, 1, &scissor);
     }
 
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    vkCmdDraw(deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+                  currentFrame),
+              static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame));
+
+    VkImageMemoryBarrier barrierBeforeCopy{};
+    barrierBeforeCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierBeforeCopy.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrierBeforeCopy.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    if (deviceQueueCommandUnitSet.getDeviceGraphicsQueue() !=
+        deviceQueueCommandUnitSet.getDeviceTransferQueue()) {
+      barrierBeforeCopy.srcQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceGraphicsQueueIndex();
+      barrierBeforeCopy.dstQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
+    } else {
+      barrierBeforeCopy.srcQueueFamilyIndex =
+          VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
+      barrierBeforeCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    }
+    barrierBeforeCopy.image = image;
+    barrierBeforeCopy.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrierBeforeCopy.subresourceRange.baseMipLevel = 0;
+    barrierBeforeCopy.subresourceRange.levelCount = 1;
+    barrierBeforeCopy.subresourceRange.baseArrayLayer = 0;
+    barrierBeforeCopy.subresourceRange.layerCount = 1;
+
+    barrierBeforeCopy.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrierBeforeCopy.dstAccessMask =
+        VK_ACCESS_TRANSFER_READ_BIT; // for transfer operation
+
+    vkCmdPipelineBarrier(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+        &barrierBeforeCopy);
+
+    if (deviceQueueCommandUnitSet.getDeviceGraphicsQueue() !=
+        deviceQueueCommandUnitSet.getDeviceTransferQueue()) {
+      if (vkEndCommandBuffer(
+              deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+                  currentFrame)) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+      } else {
+        std::cout << "End recording command buffer for unpresentable Device \""
+                  << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      }
+
+      if (vkBeginCommandBuffer(
+              deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+                  currentFrame),
+              &beginInfo) != VK_SUCCESS) {
+
+        throw std::runtime_error("failed to begin recording command buffer!");
+      } else {
+        std::cout
+            << "Begin recording command buffer for unpresentable Device \""
+            << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      }
+    }
 
     VkImageSubresourceLayers subresource{};
     subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1970,11 +2676,65 @@ private:
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {extent.width, extent.height, 1};
 
-    vkCmdCopyImageToBuffer(commandBuffer, image,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer,
-                           1, &region);
+    vkCmdCopyImageToBuffer(
+        deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
+        image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &region);
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    VkBufferMemoryBarrier bufferBarrierAfterCopy{};
+    bufferBarrierAfterCopy.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufferBarrierAfterCopy.srcQueueFamilyIndex =
+        deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
+    bufferBarrierAfterCopy.dstQueueFamilyIndex =
+        deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
+    bufferBarrierAfterCopy.buffer = stagingBuffer;
+    bufferBarrierAfterCopy.offset = 0;
+    bufferBarrierAfterCopy.size = stagingBufferSize;
+    bufferBarrierAfterCopy.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufferBarrierAfterCopy.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0,
+        nullptr, 1, &bufferBarrierAfterCopy, 0, nullptr);
+
+    VkImageMemoryBarrier imageBarrierAfterCopy{};
+    imageBarrierAfterCopy.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageBarrierAfterCopy.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imageBarrierAfterCopy.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    if (deviceQueueCommandUnitSet.getDeviceGraphicsQueue() !=
+        deviceQueueCommandUnitSet.getDeviceTransferQueue()) {
+      imageBarrierAfterCopy.srcQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceTransferQueueIndex();
+      imageBarrierAfterCopy.dstQueueFamilyIndex =
+          deviceQueueCommandUnitSet.getDeviceGraphicsQueueIndex();
+    } else {
+      imageBarrierAfterCopy.srcQueueFamilyIndex =
+          VK_QUEUE_FAMILY_IGNORED; // Ignore for single queue
+      imageBarrierAfterCopy.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    }
+    imageBarrierAfterCopy.image = image;
+    imageBarrierAfterCopy.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBarrierAfterCopy.subresourceRange.baseMipLevel = 0;
+    imageBarrierAfterCopy.subresourceRange.levelCount = 1;
+    imageBarrierAfterCopy.subresourceRange.baseArrayLayer = 0;
+    imageBarrierAfterCopy.subresourceRange.layerCount = 1;
+
+    imageBarrierAfterCopy.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    imageBarrierAfterCopy.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0,
+        nullptr, 1, &imageBarrierAfterCopy);
+
+    if (vkEndCommandBuffer(
+            deviceQueueCommandUnitSet.getDeviceTransferQueueCommandBuffer(
+                currentFrame)) != VK_SUCCESS) {
       throw std::runtime_error("failed to record command buffer!");
     } else {
       std::cout << "End recording command buffer for unpresentable Device \""
@@ -2081,20 +2841,33 @@ private:
     }
   }
 
-  static void createStagingBuffer(VkPhysicalDevice physicalDevice,
-                                  VkDevice logicalDevice, VkExtent2D extent,
-                                  VkBuffer &stagingBuffer,
-                                  VkDeviceMemory &stagingBufferMemory,
-                                  void *&stagingBufferData,
-                                  VkBufferUsageFlags bufferFlags,
-                                  const bool isPresentableStagingBufferSizeSet,
-                                  size_t &stagingBufferSize) {
+  static void createStagingBuffer(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      VkExtent2D extent, VkBuffer &stagingBuffer,
+      VkDeviceMemory &stagingBufferMemory, void *&stagingBufferData,
+      VkBufferUsageFlags bufferFlags,
+      const bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = extent.width * extent.height * 4; // 4 for (RGBA)
     bufferInfo.usage = bufferFlags;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    std::vector<uint32_t> uniqueQueueFamiliesArray =
+        DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
+            deviceQueueCommandUnitSet);
+
+    if (uniqueQueueFamiliesArray.size() > 1) {
+      bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+      bufferInfo.queueFamilyIndexCount =
+          static_cast<uint32_t>(uniqueQueueFamiliesArray.size());
+      bufferInfo.pQueueFamilyIndices = uniqueQueueFamiliesArray.data();
+    } else {
+      bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      bufferInfo.queueFamilyIndexCount = 0;     // Optional
+      bufferInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
 
     vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &stagingBuffer);
 
@@ -2128,6 +2901,7 @@ private:
 
   static void createStagingBuffers(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
       std::vector<VkDeviceMemory> &stagingBuffersMemories,
       std::vector<void *> &stagingBuffersData, VkBufferUsageFlags bufferFlags,
@@ -2142,10 +2916,10 @@ private:
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       std::cout << "For frame [" << i << "]" << std::endl;
-      createStagingBuffer(physicalDevice, logicalDevice, extent,
-                          stagingBuffers[i], stagingBuffersMemories[i],
-                          stagingBuffersData[i], bufferFlags,
-                          isPresentableStagingBufferSizeSet, stagingBufferSize);
+      createStagingBuffer(
+          physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent,
+          stagingBuffers[i], stagingBuffersMemories[i], stagingBuffersData[i],
+          bufferFlags, isPresentableStagingBufferSizeSet, stagingBufferSize);
       if (!isPresentableStagingBufferSizeSet) {
         isPresentableStagingBufferSizeSet = true;
       }
@@ -2154,24 +2928,27 @@ private:
 
   static void createStagingBuffersForPresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
       std::vector<VkDeviceMemory> &stagingBuffersMemories,
       std::vector<void *> &stagingBuffersData, size_t &stagingBufferSize) {
 
-    createStagingBuffers(physicalDevice, logicalDevice, extent, stagingBuffers,
-                         stagingBuffersMemories, stagingBuffersData,
-                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT, false,
-                         stagingBufferSize);
+    createStagingBuffers(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent,
+        stagingBuffers, stagingBuffersMemories, stagingBuffersData,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, false, stagingBufferSize);
   }
 
   static void createStagingBuffersForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       VkExtent2D extent, std::vector<VkBuffer> &stagingBuffers,
       std::vector<VkDeviceMemory> &stagingBuffersMemories,
       std::vector<void *> &stagingBuffersData,
       const bool isPresentableStagingBufferSizeSet, size_t &stagingBufferSize) {
 
-    createStagingBuffers(physicalDevice, logicalDevice, extent, stagingBuffers,
+    createStagingBuffers(physicalDevice, logicalDevice,
+                         deviceQueueCommandUnitSet, extent, stagingBuffers,
                          stagingBuffersMemories, stagingBuffersData,
                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                          isPresentableStagingBufferSizeSet, stagingBufferSize);
@@ -2200,20 +2977,16 @@ private:
 
     pickPhysicalDevice(instance, presentableWindowSurface);
 
-    createPresentableLogicalDevice(presentablePhysicalDevice,
-                                   presentableWindowSurface,
-                                   presentableLogicalDevice);
-    createGraphicsQueue(presentablePhysicalDevice, presentableLogicalDevice,
-                        graphicsQueueForPresentable);
-    createPresentationQueue(presentablePhysicalDevice, presentableLogicalDevice,
-                            presentableWindowSurface,
-                            presentationQueueForPresentable);
+    createLogicalDevice(presentablePhysicalDevice, presentableWindowSurface,
+                        presentableLogicalDevice,
+                        presentableDeviceQueueCommandUnitSet);
 
     createSwapChainForPresentation(
-        presentablePhysicalDevice, presentableLogicalDevice, window,
-        presentableWindowSurface, isSplitRenderPresentMode,
-        presentableSwapChain, presentableSwapChainImages,
-        presentableSwapChainImageFormat, presentableSwapChainExtent);
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableDeviceQueueCommandUnitSet, window, presentableWindowSurface,
+        isSplitRenderPresentMode, presentableSwapChain,
+        presentableSwapChainImages, presentableSwapChainImageFormat,
+        presentableSwapChainExtent);
 
     createImageViewsForPresentation(
         presentableSwapChainImages, presentableSwapChainImageFormat,
@@ -2239,14 +3012,13 @@ private:
         presentableSwapChainImageViews, presentableRenderPass,
         presentableSwapChainExtent, presentableSwapChainFrameBuffers);
 
-    createCommandPool(presentablePhysicalDevice, presentableLogicalDevice,
-                      presentableCommandPool);
+    createDeviceCommandPoolsAndBuffers(presentablePhysicalDevice,
+                                       presentableLogicalDevice,
+                                       presentableDeviceQueueCommandUnitSet);
 
     createVertexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
+                       presentableDeviceQueueCommandUnitSet,
                        presentableVertexBuffer, presentableVertexBufferMemory);
-
-    createCommandBuffers(presentablePhysicalDevice, presentableLogicalDevice,
-                         presentableCommandPool, presentableCommandBuffers);
 
     createSyncObjectsForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice,
@@ -2255,12 +3027,13 @@ private:
 
     createStagingBuffersForPresentableDevice(
         presentablePhysicalDevice, presentableLogicalDevice,
-        presentableSwapChainExtent, presentableStagingBuffers,
-        presentableStagingBuffersMemories, presentableStagingBuffersData,
-        stagingBufferSize);
+        presentableDeviceQueueCommandUnitSet, presentableSwapChainExtent,
+        presentableStagingBuffers, presentableStagingBuffersMemories,
+        presentableStagingBuffersData, stagingBufferSize);
 
     unpresentableLogicalDevices.resize(unpresentablePhysicalDevices.size());
-    graphicsQueuesForUnpresentable.resize(unpresentablePhysicalDevices.size());
+    unpresentableDeviceQueueCommandUnitSet.resize(
+        unpresentablePhysicalDevices.size());
     unpresentableDeviceImages.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceImageMemories.resize(
         unpresentablePhysicalDevices.size());
@@ -2271,9 +3044,6 @@ private:
     unpresentableRenderPasses.resize(unpresentablePhysicalDevices.size());
     unpresentableGraphicsPipelines.resize(unpresentablePhysicalDevices.size());
     unpresentableDeviceFrameBuffers.resize(unpresentablePhysicalDevices.size());
-
-    unpresentableCommandPools.resize(unpresentablePhysicalDevices.size());
-    unpresentableCommandBuffers.resize(unpresentablePhysicalDevices.size());
 
     unpresentableVertexBuffers.resize(unpresentablePhysicalDevices.size());
     unpresentableVertexBuffersMemories.resize(
@@ -2289,15 +3059,14 @@ private:
     unpresentableStagingBuffersData.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
-      createUnpresentableLogicalDevice(unpresentablePhysicalDevices[i],
-                                       unpresentableLogicalDevices[i]);
-
-      createGraphicsQueue(unpresentablePhysicalDevices[i],
+      createLogicalDevice(unpresentablePhysicalDevices[i],
+                          presentableWindowSurface,
                           unpresentableLogicalDevices[i],
-                          graphicsQueuesForUnpresentable[i]);
+                          unpresentableDeviceQueueCommandUnitSet[i]);
 
       createUnpresentableDeviceImage(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i],
           presentableSwapChainExtent.width, presentableSwapChainExtent.height,
           presentableSwapChainImageFormat, unpresentableDeviceImages[i]);
 
@@ -2330,17 +3099,14 @@ private:
           unpresentableDeviceImageViews[i], unpresentableRenderPasses[i],
           presentableSwapChainExtent, unpresentableDeviceFrameBuffers[i]);
 
-      createCommandPool(unpresentablePhysicalDevices[i],
-                        unpresentableLogicalDevices[i],
-                        unpresentableCommandPools[i]);
+      createDeviceCommandPoolsAndBuffers(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i]);
 
       createVertexBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i],
           unpresentableVertexBuffers[i], unpresentableVertexBuffersMemories[i]);
-
-      createCommandBuffers(
-          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          unpresentableCommandPools[i], unpresentableCommandBuffers[i]);
 
       createSyncObjectsForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -2349,7 +3115,8 @@ private:
 
       createStagingBuffersForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          presentableSwapChainExtent, unpresentableStagingBuffers[i],
+          unpresentableDeviceQueueCommandUnitSet[i], presentableSwapChainExtent,
+          unpresentableStagingBuffers[i],
           unpresentableStagingBuffersMemories[i],
           unpresentableStagingBuffersData[i], true, stagingBufferSize);
     }
@@ -2357,6 +3124,7 @@ private:
 
   static void recreateSwapChainForPresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
       std::vector<VkImage> &swapChainImages,
       std::vector<VkImageView> &swapChainImageViews,
@@ -2379,10 +3147,10 @@ private:
                                         swapChainImages, swapChainFrameBuffers,
                                         swapChainImageViews);
 
-    createSwapChainForPresentation(physicalDevice, logicalDevice, window,
-                                   windowSurface, isSplitRenderPresentMode,
-                                   swapChain, swapChainImages,
-                                   swapChainImageFormat, swapChainExtent);
+    createSwapChainForPresentation(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
+        windowSurface, isSplitRenderPresentMode, swapChain, swapChainImages,
+        swapChainImageFormat, swapChainExtent);
     createImageViewsForPresentation(swapChainImages, swapChainImageFormat,
                                     physicalDevice, logicalDevice,
                                     swapChainImageViews);
@@ -2394,11 +3162,14 @@ private:
 
   static void recreateStagingBuffers(
       VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_p,
       std::vector<VkBuffer> &stagingBuffers_p,
       std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
       std::vector<void *> &stagingBuffersData_p, size_t &stagingBufferSize,
       VkExtent2D extent, VkPhysicalDevice physicalDevice_unp,
-      VkDevice logicalDevice_unp, std::vector<VkBuffer> &stagingBuffers_unp,
+      VkDevice logicalDevice_unp,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_unp,
+      std::vector<VkBuffer> &stagingBuffers_unp,
       std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
       std::vector<void *> &stagingBuffersData_unp) {
 
@@ -2411,18 +3182,20 @@ private:
                                   stagingBuffersData_unp);
 
     createStagingBuffersForPresentableDevice(
-        physicalDevice_p, logicalDevice_p, extent, stagingBuffers_p,
-        stagingBuffersMemories_p, stagingBuffersData_p, stagingBufferSize);
+        physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p, extent,
+        stagingBuffers_p, stagingBuffersMemories_p, stagingBuffersData_p,
+        stagingBufferSize);
 
     createStagingBuffersForUnpresentableDevice(
-        physicalDevice_unp, logicalDevice_unp, extent, stagingBuffers_unp,
-        stagingBuffersMemories_unp, stagingBuffersData_unp, true,
-        stagingBufferSize);
+        physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
+        extent, stagingBuffers_unp, stagingBuffersMemories_unp,
+        stagingBuffersData_unp, true, stagingBufferSize);
   }
 
   static void recreateFrameBufferforUnpresentableDevice(
-      VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkImage &image,
-      VkDeviceMemory &imageMemory, VkImageView &imageView,
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      VkImage &image, VkDeviceMemory &imageMemory, VkImageView &imageView,
       VkFormat &imageFormat, VkExtent2D extent, VkRenderPass renderPass,
       VkFramebuffer &frameBuffer) {
 
@@ -2431,7 +3204,8 @@ private:
     cleanupImageFrameBufferForUnpresentableDevice(
         logicalDevice, image, imageMemory, imageView, frameBuffer);
 
-    createUnpresentableDeviceImage(physicalDevice, logicalDevice, extent.width,
+    createUnpresentableDeviceImage(physicalDevice, logicalDevice,
+                                   deviceQueueCommandUnitSet, extent.width,
                                    extent.height, imageFormat, image);
 
     allocateMemoryForUnpresentableDeviceImage(physicalDevice, logicalDevice,
@@ -2446,7 +3220,7 @@ private:
   }
 
   void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-                 VkQueue graphicsQueue, VkQueue presentQueue,
+                 const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
                  GLFWwindow *window, VkSurfaceKHR windowSurface,
                  VkSwapchainKHR &swapChain,
                  std::vector<VkImage> &swapChainImages,
@@ -2454,9 +3228,7 @@ private:
                  VkFormat &swapChainImageFormat, VkExtent2D &extent,
                  VkRenderPass renderPass,
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
-                 VkPipeline graphicsPipeline,
-                 std::vector<VkCommandBuffer> commandBuffers,
-                 VkBuffer vertexBuffer,
+                 VkPipeline graphicsPipeline, VkBuffer vertexBuffer,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
                  std::vector<VkFence> inFlightFences,
@@ -2472,9 +3244,9 @@ private:
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
       recreateSwapChainForPresentableDevice(
-          physicalDevice, logicalDevice, window, windowSurface, swapChain,
-          swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
-          renderPass, swapChainFrameBuffers);
+          physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
+          windowSurface, swapChain, swapChainImages, swapChainImageViews,
+          swapChainImageFormat, extent, renderPass, swapChainFrameBuffers);
 
       std::cout << "EXTENT(aq) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
@@ -2487,29 +3259,38 @@ private:
     // Only reset the fence if we are submitting work
     vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+    vkResetCommandBuffer(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        0);
 
     recordCommandBufferForPresentation(
-        physicalDevice, commandBuffers[currentFrame], vertexBuffer, imageIndex,
-        renderPass, swapChainFrameBuffers, extent, graphicsPipeline,
-        isDynamicViewPortAndScissor);
+        physicalDevice,
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        vertexBuffer, imageIndex, renderPass, swapChainFrameBuffers, extent,
+        graphicsPipeline, isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkCommandBuffer commandBuffers[] = {
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame)};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = commandBuffers;
     VkSemaphore signalSemaphores[] = {
         renderingFinishedSemaphores[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo,
+    if (vkQueueSubmit(deviceQueueCommandUnitSet.getDeviceGraphicsQueue(), 1,
+                      &submitInfo,
                       inFlightFences[currentFrame]) != VK_SUCCESS) {
       throw std::runtime_error("failed to submit draw command buffer!");
     } else {
@@ -2530,7 +3311,8 @@ private:
 
     presentInfo.pResults = nullptr; // Optional
 
-    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+    result = vkQueuePresentKHR(
+        deviceQueueCommandUnitSet.getDevicePresentQueue(), &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         frameBufferResized) {
@@ -2538,9 +3320,9 @@ private:
       frameBufferResized = false;
 
       recreateSwapChainForPresentableDevice(
-          physicalDevice, logicalDevice, window, windowSurface, swapChain,
-          swapChainImages, swapChainImageViews, swapChainImageFormat, extent,
-          renderPass, swapChainFrameBuffers);
+          physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
+          windowSurface, swapChain, swapChainImages, swapChainImageViews,
+          swapChainImageFormat, extent, renderPass, swapChainFrameBuffers);
       std::cout << "EXTENT(pr) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
     } else if (result != VK_SUCCESS) {
@@ -2550,66 +3332,138 @@ private:
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   }
 
-  void drawFrame2(VkPhysicalDevice physicalDevice_unp,
-                  VkDevice logicalDevice_unp, VkQueue graphicsQueue_unp,
-                  VkImage &image_unp, VkDeviceMemory &imageMemory_unp,
-                  VkImageView &imageView_unp, VkFormat &imageFormat_unp,
-                  VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
-                  VkFramebuffer &frameBuffer_unp,
-                  std::vector<VkCommandBuffer> &commandBuffers_unp,
-                  VkBuffer vertexBuffer_unp,
-                  std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
-                  std::vector<VkFence> &interDeviceFences_unp,
-                  std::vector<VkBuffer> &stagingBuffers_unp,
-                  std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
-                  std::vector<void *> &stagingBufferData_unp,
-                  VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
-                  VkQueue graphicsQueue_p, VkQueue presentQueue_p,
-                  GLFWwindow *window, VkSurfaceKHR windowSurface_p,
-                  VkSwapchainKHR &swapChain_p,
-                  std::vector<VkImage> &swapChainImages_p,
-                  std::vector<VkImageView> &swapChainImageViews_p,
-                  VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
-                  VkRenderPass renderPass_p,
-                  std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
-                  std::vector<VkCommandBuffer> &copyCommandBuffers_p,
-                  std::vector<VkSemaphore> &imageAvailableSemaphores_p,
-                  std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
-                  std::vector<VkFence> &inFlightFences_p,
-                  std::vector<VkBuffer> &stagingBuffers_p,
-                  std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
-                  std::vector<void *> &stagingBufferData_p,
-                  size_t &stagingBufferSize,
-                  const bool isDynamicViewPortAndScissor) {
+  void drawFrame2(
+      VkPhysicalDevice physicalDevice_unp, VkDevice logicalDevice_unp,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_unp,
+      VkImage &image_unp, VkDeviceMemory &imageMemory_unp,
+      VkImageView &imageView_unp, VkFormat &imageFormat_unp,
+      VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
+      VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
+      std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
+      std::vector<VkFence> &interDeviceFences_unp,
+      std::vector<VkBuffer> &stagingBuffers_unp,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_unp,
+      std::vector<void *> &stagingBufferData_unp,
+      VkPhysicalDevice physicalDevice_p, VkDevice logicalDevice_p,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_p,
+      GLFWwindow *window, VkSurfaceKHR windowSurface_p,
+      VkSwapchainKHR &swapChain_p, std::vector<VkImage> &swapChainImages_p,
+      std::vector<VkImageView> &swapChainImageViews_p,
+      VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
+      VkRenderPass renderPass_p,
+      std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
+      std::vector<VkSemaphore> &imageAvailableSemaphores_p,
+      std::vector<VkSemaphore> &copyingFinishedSemaphores_p,
+      std::vector<VkFence> &inFlightFences_p,
+      std::vector<VkBuffer> &stagingBuffers_p,
+      std::vector<VkDeviceMemory> &stagingBuffersMemories_p,
+      std::vector<void *> &stagingBufferData_p, size_t &stagingBufferSize,
+      const bool isDynamicViewPortAndScissor) {
 
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
 
-    vkResetCommandBuffer(commandBuffers_unp[currentFrame], 0);
+    if (deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueIndex() ==
+        deviceQueueCommandUnitSet_unp.getDeviceTransferQueueIndex()) {
 
-    recordCommandBufferForUnpresentableDevice(
-        physicalDevice_unp, commandBuffers_unp[currentFrame], vertexBuffer_unp,
-        image_unp, renderPass_unp, frameBuffer_unp, extent,
-        graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
-        isDynamicViewPortAndScissor);
+      vkResetCommandBuffer(
+          deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame),
+          0);
 
-    VkSubmitInfo submitInfo_unp{};
-    submitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo_unp.waitSemaphoreCount = 0;
-    submitInfo_unp.pWaitSemaphores = nullptr;   // Optional
-    submitInfo_unp.pWaitDstStageMask = nullptr; // Optional
-    submitInfo_unp.commandBufferCount = 1;
-    submitInfo_unp.pCommandBuffers = &commandBuffers_unp[currentFrame];
-    submitInfo_unp.signalSemaphoreCount = 0;
-    submitInfo_unp.pSignalSemaphores = nullptr; // Optional
+      recordCommandBufferForUnpresentableDevice(
+          physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
+          vertexBuffer_unp, image_unp, renderPass_unp, frameBuffer_unp, extent,
+          graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
+          stagingBufferSize, isDynamicViewPortAndScissor);
 
-    if (vkQueueSubmit(graphicsQueue_unp, 1, &submitInfo_unp,
-                      interDeviceFences_unp[currentFrame]) != VK_SUCCESS) {
-      throw std::runtime_error("failed to submit draw command buffer!");
+      VkSubmitInfo submitInfo_unp{};
+      VkCommandBuffer commandBuffers_unp[] = {
+          deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame)};
+      submitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      submitInfo_unp.waitSemaphoreCount = 0;
+      submitInfo_unp.pWaitSemaphores = nullptr;   // Optional
+      submitInfo_unp.pWaitDstStageMask = nullptr; // Optional
+      submitInfo_unp.commandBufferCount = 1;
+      submitInfo_unp.pCommandBuffers = commandBuffers_unp;
+      submitInfo_unp.signalSemaphoreCount = 0;
+      submitInfo_unp.pSignalSemaphores = nullptr; // Optional
+
+      if (vkQueueSubmit(deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueue(),
+                        1, &submitInfo_unp,
+                        interDeviceFences_unp[currentFrame]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+      } else {
+        std::cout << "Submitted draw and copy command buffer for device \""
+                  << getPhysicalDeviceName(physicalDevice_unp) << "\""
+                  << std::endl;
+      }
     } else {
-      std::cout << "Submitted draw and copy command buffer for device \""
-                << getPhysicalDeviceName(physicalDevice_unp) << "\""
-                << std::endl;
+      vkResetCommandBuffer(
+          deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame),
+          0);
+
+      vkResetCommandBuffer(
+          deviceQueueCommandUnitSet_unp.getDeviceTransferQueueCommandBuffer(
+              currentFrame),
+          0);
+
+      recordCommandBufferForUnpresentableDevice(
+          physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
+          vertexBuffer_unp, image_unp, renderPass_unp, frameBuffer_unp, extent,
+          graphicsPipeline_unp, stagingBuffers_unp[currentFrame],
+          stagingBufferSize, isDynamicViewPortAndScissor);
+
+      VkSubmitInfo renderSubmitInfo_unp{};
+      VkCommandBuffer renderCommandBuffers_unp[] = {
+          deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueCommandBuffer(
+              currentFrame)};
+      VkSemaphore transferSignalSemaphores_unp[] = {
+          renderingFinishedSemaphores_unp[currentFrame]};
+      renderSubmitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      renderSubmitInfo_unp.waitSemaphoreCount = 0;
+      renderSubmitInfo_unp.pWaitSemaphores = nullptr;   // Optional
+      renderSubmitInfo_unp.pWaitDstStageMask = nullptr; // Optional
+      renderSubmitInfo_unp.commandBufferCount = 1;
+      renderSubmitInfo_unp.pCommandBuffers = renderCommandBuffers_unp;
+      renderSubmitInfo_unp.signalSemaphoreCount = 1;
+      renderSubmitInfo_unp.pSignalSemaphores = transferSignalSemaphores_unp;
+
+      if (vkQueueSubmit(deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueue(),
+                        1, &renderSubmitInfo_unp,
+                        VK_NULL_HANDLE) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+      } else {
+        std::cout << "Submitted draw command buffer for device \""
+                  << getPhysicalDeviceName(physicalDevice_unp) << "\""
+                  << std::endl;
+      }
+
+      VkSubmitInfo transferSubmitInfo_unp{};
+      VkCommandBuffer transferCommandBuffers_unp[] = {
+          deviceQueueCommandUnitSet_unp.getDeviceTransferQueueCommandBuffer(
+              currentFrame)};
+      VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+      transferSubmitInfo_unp.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      transferSubmitInfo_unp.waitSemaphoreCount = 1;
+      transferSubmitInfo_unp.pWaitSemaphores = transferSignalSemaphores_unp;
+      transferSubmitInfo_unp.pWaitDstStageMask = waitStages;
+      transferSubmitInfo_unp.commandBufferCount = 1;
+      transferSubmitInfo_unp.pCommandBuffers = transferCommandBuffers_unp;
+      transferSubmitInfo_unp.signalSemaphoreCount = 0;
+      transferSubmitInfo_unp.pSignalSemaphores = nullptr;
+
+      if (vkQueueSubmit(deviceQueueCommandUnitSet_unp.getDeviceTransferQueue(),
+                        1, &transferSubmitInfo_unp,
+                        interDeviceFences_unp[currentFrame]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+      } else {
+        std::cout << "Submitted copy command buffer for device \""
+                  << getPhysicalDeviceName(physicalDevice_unp) << "\""
+                  << std::endl;
+      }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2639,20 +3493,21 @@ private:
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
       recreateSwapChainForPresentableDevice(
-          physicalDevice_p, logicalDevice_p, window, windowSurface_p,
-          swapChain_p, swapChainImages_p, swapChainImageViews_p,
-          swapChainImageFormat_p, extent, renderPass_p,
+          physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
+          window, windowSurface_p, swapChain_p, swapChainImages_p,
+          swapChainImageViews_p, swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
 
       recreateFrameBufferforUnpresentableDevice(
-          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
-          imageView_unp, imageFormat_unp, extent, renderPass_unp,
-          frameBuffer_unp);
+          physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
+          image_unp, imageMemory_unp, imageView_unp, imageFormat_unp, extent,
+          renderPass_unp, frameBuffer_unp);
 
       recreateStagingBuffers(
-          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
-          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
-          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
+          stagingBuffers_p, stagingBuffersMemories_p, stagingBufferData_p,
+          stagingBufferSize, extent, physicalDevice_unp, logicalDevice_unp,
+          deviceQueueCommandUnitSet_unp, stagingBuffers_unp,
           stagingBuffersMemories_unp, stagingBufferData_unp);
 
       std::cout << "EXTENT(aq) -> width:" << extent.width
@@ -2666,10 +3521,15 @@ private:
     // Only reset the fence if we are submitting work
     vkResetFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame]);
 
-    vkResetCommandBuffer(copyCommandBuffers_p[currentFrame], 0);
+    vkResetCommandBuffer(
+        deviceQueueCommandUnitSet_p.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
+        0);
 
     recordCommandBufferForCopyingFromBuffer(
-        physicalDevice_p, logicalDevice_p, copyCommandBuffers_p[currentFrame],
+        physicalDevice_p, logicalDevice_p,
+        deviceQueueCommandUnitSet_p.getDeviceTransferQueueCommandBuffer(
+            currentFrame),
         swapChainImages_p[imageIndex_p], extent,
         stagingBuffers_p[currentFrame]);
 
@@ -2678,17 +3538,21 @@ private:
     VkSemaphore copyWaitSemaphores_p[] = {
         imageAvailableSemaphores_p[currentFrame]};
     VkPipelineStageFlags copyWaitStages_p[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+    VkCommandBuffer commandBuffers_p[] = {
+        deviceQueueCommandUnitSet_p.getDeviceTransferQueueCommandBuffer(
+            currentFrame)};
     copySubmitInfo_p.waitSemaphoreCount = 1;
     copySubmitInfo_p.pWaitSemaphores = copyWaitSemaphores_p;
     copySubmitInfo_p.pWaitDstStageMask = copyWaitStages_p;
     copySubmitInfo_p.commandBufferCount = 1;
-    copySubmitInfo_p.pCommandBuffers = &copyCommandBuffers_p[currentFrame];
+    copySubmitInfo_p.pCommandBuffers = commandBuffers_p;
     VkSemaphore copySignalSemaphores_p[] = {
         copyingFinishedSemaphores_p[currentFrame]};
     copySubmitInfo_p.signalSemaphoreCount = 1;
     copySubmitInfo_p.pSignalSemaphores = copySignalSemaphores_p;
 
-    if (vkQueueSubmit(graphicsQueue_p, 1, &copySubmitInfo_p,
+    if (vkQueueSubmit(deviceQueueCommandUnitSet_p.getDeviceGraphicsQueue(), 1,
+                      &copySubmitInfo_p,
                       inFlightFences_p[currentFrame]) != VK_SUCCESS) {
       throw std::runtime_error("failed to submit draw command buffer!");
     } else {
@@ -2708,7 +3572,8 @@ private:
 
     presentInfo.pResults = nullptr; // Optional
 
-    result = vkQueuePresentKHR(presentQueue_p, &presentInfo);
+    result = vkQueuePresentKHR(
+        deviceQueueCommandUnitSet_p.getDevicePresentQueue(), &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         frameBufferResized) {
@@ -2716,20 +3581,21 @@ private:
       frameBufferResized = false;
 
       recreateSwapChainForPresentableDevice(
-          physicalDevice_p, logicalDevice_p, window, windowSurface_p,
-          swapChain_p, swapChainImages_p, swapChainImageViews_p,
-          swapChainImageFormat_p, extent, renderPass_p,
+          physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
+          window, windowSurface_p, swapChain_p, swapChainImages_p,
+          swapChainImageViews_p, swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
 
       recreateFrameBufferforUnpresentableDevice(
-          physicalDevice_unp, logicalDevice_unp, image_unp, imageMemory_unp,
-          imageView_unp, imageFormat_unp, extent, renderPass_unp,
-          frameBuffer_unp);
+          physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
+          image_unp, imageMemory_unp, imageView_unp, imageFormat_unp, extent,
+          renderPass_unp, frameBuffer_unp);
 
       recreateStagingBuffers(
-          physicalDevice_p, logicalDevice_p, stagingBuffers_p,
-          stagingBuffersMemories_p, stagingBufferData_p, stagingBufferSize,
-          extent, physicalDevice_unp, logicalDevice_unp, stagingBuffers_unp,
+          physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
+          stagingBuffers_p, stagingBuffersMemories_p, stagingBufferData_p,
+          stagingBufferSize, extent, physicalDevice_unp, logicalDevice_unp,
+          deviceQueueCommandUnitSet_unp, stagingBuffers_unp,
           stagingBuffersMemories_unp, stagingBufferData_unp);
 
       std::cout << "EXTENT(pr) -> width:" << extent.width
@@ -2742,53 +3608,56 @@ private:
   }
 
   void mainLoop() {
+    assert(unpresentablePhysicalDevices.size());
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-#ifndef SPLIT_RENDER_PRESENT_MODE
-      drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
-                graphicsQueueForPresentable, presentationQueueForPresentable,
-                window, presentableWindowSurface, presentableSwapChain,
-                presentableSwapChainImages, presentableSwapChainImageViews,
-                presentableSwapChainImageFormat, presentableSwapChainExtent,
-                presentableRenderPass, presentableSwapChainFrameBuffers,
-                presentableGraphicsPipeline, presentableCommandBuffers,
-                presentableVertexBuffer, presentableImageAvailableSemaphores,
-                presentableRenderingFinishedSemaphores,
-                presentableInFlightFences,
-                DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#else  // SPLIT_RENDER_PRESENT_MODE
-      drawFrame2(
-          unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
-          graphicsQueuesForUnpresentable[0], unpresentableDeviceImages[0],
-          unpresentableDeviceImageMemories[0], unpresentableDeviceImageViews[0],
-          presentableSwapChainImageFormat, unpresentableRenderPasses[0],
-          unpresentableGraphicsPipelines[0], unpresentableDeviceFrameBuffers[0],
-          unpresentableCommandBuffers[0], unpresentableVertexBuffers[0],
-          unpresentableRenderingFinishedSemaphores[0],
-          unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
-          unpresentableStagingBuffersMemories[0],
-          unpresentableStagingBuffersData[0], presentablePhysicalDevice,
-          presentableLogicalDevice, graphicsQueueForPresentable,
-          presentationQueueForPresentable, window, presentableWindowSurface,
-          presentableSwapChain, presentableSwapChainImages,
-          presentableSwapChainImageViews, presentableSwapChainImageFormat,
-          presentableSwapChainExtent, presentableRenderPass,
-          presentableSwapChainFrameBuffers, presentableCommandBuffers,
-          presentableImageAvailableSemaphores,
-          presentableRenderingFinishedSemaphores, // using this for
-                                                  // copyFinishSemaphore
-          presentableInFlightFences, presentableStagingBuffers,
-          presentableStagingBuffersMemories, presentableStagingBuffersData,
-          stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
-#endif // SPLIT_RENDER_PRESENT_MODE
+      if (!isSplitRenderPresentMode) {
+        drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
+                  presentableDeviceQueueCommandUnitSet, window,
+                  presentableWindowSurface, presentableSwapChain,
+                  presentableSwapChainImages, presentableSwapChainImageViews,
+                  presentableSwapChainImageFormat, presentableSwapChainExtent,
+                  presentableRenderPass, presentableSwapChainFrameBuffers,
+                  presentableGraphicsPipeline, presentableVertexBuffer,
+                  presentableImageAvailableSemaphores,
+                  presentableRenderingFinishedSemaphores,
+                  presentableInFlightFences,
+                  DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+      } else {
+        drawFrame2(
+            unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
+            unpresentableDeviceQueueCommandUnitSet[0],
+            unpresentableDeviceImages[0], unpresentableDeviceImageMemories[0],
+            unpresentableDeviceImageViews[0], presentableSwapChainImageFormat,
+            unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
+            unpresentableDeviceFrameBuffers[0], unpresentableVertexBuffers[0],
+            unpresentableRenderingFinishedSemaphores[0],
+            unpresentableInterDeviceFences[0], unpresentableStagingBuffers[0],
+            unpresentableStagingBuffersMemories[0],
+            unpresentableStagingBuffersData[0], presentablePhysicalDevice,
+            presentableLogicalDevice, presentableDeviceQueueCommandUnitSet,
+            window, presentableWindowSurface, presentableSwapChain,
+            presentableSwapChainImages, presentableSwapChainImageViews,
+            presentableSwapChainImageFormat, presentableSwapChainExtent,
+            presentableRenderPass, presentableSwapChainFrameBuffers,
+            presentableImageAvailableSemaphores,
+            presentableRenderingFinishedSemaphores, // using this for
+                                                    // copyFinishSemaphore
+            presentableInFlightFences, presentableStagingBuffers,
+            presentableStagingBuffersMemories, presentableStagingBuffersData,
+            stagingBufferSize, DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+      }
     }
 
-    vkQueueWaitIdle(graphicsQueueForPresentable);
-    vkQueueWaitIdle(presentationQueueForPresentable);
+    vkQueueWaitIdle(
+        presentableDeviceQueueCommandUnitSet.getDeviceGraphicsQueue());
+    vkQueueWaitIdle(
+        presentableDeviceQueueCommandUnitSet.getDevicePresentQueue());
     vkDeviceWaitIdle(presentableLogicalDevice);
 
     for (uint32_t i = 0; i < unpresentableDeviceImages.size(); i++) {
-      vkQueueWaitIdle(graphicsQueuesForUnpresentable[i]);
+      vkQueueWaitIdle(
+          unpresentableDeviceQueueCommandUnitSet[i].getDeviceGraphicsQueue());
       vkDeviceWaitIdle(unpresentableLogicalDevices[i]);
     }
   }
@@ -2833,8 +3702,9 @@ private:
           unpresentableRenderingFinishedSemaphores[i],
           unpresentableInterDeviceFences[i]);
 
-      vkDestroyCommandPool(unpresentableLogicalDevices[i],
-                           unpresentableCommandPools[i], nullptr);
+      destroyDeviceCommandPoolsAndBuffers(
+          unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i]);
 
       cleanupImageFrameBufferForUnpresentableDevice(
           unpresentableLogicalDevices[i], unpresentableDeviceImages[i],
@@ -2864,8 +3734,8 @@ private:
         presentableLogicalDevice, presentableImageAvailableSemaphores,
         presentableRenderingFinishedSemaphores, presentableInFlightFences);
 
-    vkDestroyCommandPool(presentableLogicalDevice, presentableCommandPool,
-                         nullptr);
+    destroyDeviceCommandPoolsAndBuffers(presentableLogicalDevice,
+                                        presentableDeviceQueueCommandUnitSet);
 
     cleanupSwapChainOfPresentableDevice(
         presentableLogicalDevice, presentableSwapChain,
