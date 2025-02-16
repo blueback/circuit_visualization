@@ -980,6 +980,9 @@ private:
 
   VkDescriptorSetLayout presentableDescriptorSetLayout;
 
+  VkDescriptorPool presentableDescriptorPool;
+  std::vector<VkDescriptorSet> presentableDescriptorSets;
+
   VkPipelineLayout presentableGraphicsPipelineLayout;
   VkRenderPass presentableRenderPass;
   VkPipeline presentableGraphicsPipeline;
@@ -1017,6 +1020,9 @@ private:
   std::vector<VkImageView> unpresentableDeviceImageViews;
 
   std::vector<VkDescriptorSetLayout> unpresentableDescriptorSetLayouts;
+
+  std::vector<VkDescriptorPool> unpresentableDescriptorPools;
+  std::vector<std::vector<VkDescriptorSet>> unpresentableDescriptorSets;
 
   std::vector<VkPipelineLayout> unpresentableGraphicsPipelineLayouts;
   std::vector<VkRenderPass> unpresentableRenderPasses;
@@ -2231,7 +2237,7 @@ private:
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f;          // Optional
@@ -2604,9 +2610,11 @@ private:
     }
   }
 
-  static void updateUniformBuffer(uint32_t currentImage,
+  static void updateUniformBuffer(VkPhysicalDevice physicalDevice,
+                                  const uint32_t currentImage,
                                   VkExtent2D swapChainExtent,
                                   std::vector<void *> &uniformBuffersMapped) {
+
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -2629,6 +2637,77 @@ private:
     ubo.proj[1][1] *= -1;
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+    std::cout << "Updated the Uniform Buffer for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+  }
+
+  static void createDescriptorPool(VkPhysicalDevice physicalDevice,
+                                   VkDevice logicalDevice,
+                                   VkDescriptorPool &descriptorPool) {
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr,
+                               &descriptorPool) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create descriptor pool!");
+    } else {
+      std::cout << "Created descriptor pool for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void
+  createDescriptorSets(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+                       const VkDescriptorSetLayout &descriptorSetLayout,
+                       const VkDescriptorPool &descriptorPool,
+                       std::vector<VkDescriptorSet> &descriptorSets,
+                       std::vector<VkBuffer> &uniformBuffers) {
+
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                               descriptorSetLayout);
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo,
+                                 descriptorSets.data()) != VK_SUCCESS) {
+      throw std::runtime_error("failed to allocate descriptor sets!");
+    } else {
+      std::cout << "Created Descriptor sets for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      VkDescriptorBufferInfo bufferInfo{};
+      bufferInfo.buffer = uniformBuffers[i];
+      bufferInfo.offset = 0;
+      bufferInfo.range = sizeof(UniformBufferObject);
+
+      VkWriteDescriptorSet descriptorWrite{};
+      descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      descriptorWrite.dstSet = descriptorSets[i];
+      descriptorWrite.dstBinding = 0;
+      descriptorWrite.dstArrayElement = 0;
+      descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      descriptorWrite.descriptorCount = 1;
+      descriptorWrite.pBufferInfo = &bufferInfo;
+      descriptorWrite.pImageInfo = nullptr;       // Optional
+      descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+      vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+    }
   }
 
   static void recordCommandBufferForPresentation(
@@ -2636,6 +2715,8 @@ private:
       VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t imageIndex,
       VkRenderPass renderPass, std::vector<VkFramebuffer> &frameBuffers,
       VkExtent2D extent, VkPipeline graphicsPipeline,
+      VkPipelineLayout pipelineLayout,
+      std::vector<VkDescriptorSet> &descriptorSets, const uint32_t currentFrame,
       const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -2692,6 +2773,12 @@ private:
       vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     }
+
+    assert(currentFrame < MAX_FRAMES_IN_FLIGHT);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipelineLayout, 0, 1, &descriptorSets[currentFrame],
+                            0, nullptr);
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0,
                      0, 0);
@@ -2800,7 +2887,9 @@ private:
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       const uint32_t currentFrame, VkBuffer vertexBuffer, VkBuffer indexBuffer,
       VkImage image, VkRenderPass renderPass, VkFramebuffer frameBuffer,
-      VkExtent2D extent, VkPipeline graphicsPipeline, VkBuffer stagingBuffer,
+      VkExtent2D extent, VkPipeline graphicsPipeline,
+      VkPipelineLayout pipelineLayout,
+      std::vector<VkDescriptorSet> &descriptorSets, VkBuffer stagingBuffer,
       size_t stagingBufferSize, const bool isDynamicViewPortAndScissor) {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -2875,6 +2964,12 @@ private:
               currentFrame),
           0, 1, &scissor);
     }
+
+    vkCmdBindDescriptorSets(
+        deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
+            currentFrame),
+        VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+        &descriptorSets[currentFrame], 0, nullptr);
 
     vkCmdDrawIndexed(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
@@ -3288,6 +3383,14 @@ private:
         presentableDeviceQueueCommandUnitSet, presentableUniformBuffers,
         presentableUniformBuffersMemory, presentableUniformBuffersMapped);
 
+    createDescriptorPool(presentablePhysicalDevice, presentableLogicalDevice,
+                         presentableDescriptorPool);
+
+    createDescriptorSets(presentablePhysicalDevice, presentableLogicalDevice,
+                         presentableDescriptorSetLayout,
+                         presentableDescriptorPool, presentableDescriptorSets,
+                         presentableUniformBuffers);
+
     createSyncObjectsForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice,
         presentableImageAvailableSemaphores,
@@ -3309,6 +3412,9 @@ private:
 
     unpresentableDescriptorSetLayouts.resize(
         unpresentablePhysicalDevices.size());
+
+    unpresentableDescriptorPools.resize(unpresentablePhysicalDevices.size());
+    unpresentableDescriptorSets.resize(unpresentablePhysicalDevices.size());
 
     unpresentableGraphicsPipelineLayouts.resize(
         unpresentablePhysicalDevices.size());
@@ -3404,6 +3510,15 @@ private:
                            unpresentableUniformBuffers[i],
                            unpresentableUniformBuffersMemories[i],
                            unpresentableUniformBuffersMapped[i]);
+
+      createDescriptorPool(unpresentablePhysicalDevices[i],
+                           unpresentableLogicalDevices[i],
+                           unpresentableDescriptorPools[i]);
+
+      createDescriptorSets(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDescriptorSetLayouts[i], unpresentableDescriptorPools[i],
+          unpresentableDescriptorSets[i], unpresentableUniformBuffers[i]);
 
       createSyncObjectsForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -3523,8 +3638,9 @@ private:
                  VkFormat &swapChainImageFormat, VkExtent2D &extent,
                  VkRenderPass renderPass,
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
-                 VkPipeline graphicsPipeline, VkBuffer vertexBuffer,
-                 VkBuffer indexBuffer,
+                 VkPipeline graphicsPipeline, VkPipelineLayout pipelineLayout,
+                 std::vector<VkDescriptorSet> &descriptorSets,
+                 VkBuffer vertexBuffer, VkBuffer indexBuffer,
                  std::vector<void *> &uniformBuffersMapped,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
@@ -3556,7 +3672,8 @@ private:
     // Only reset the fence if we are submitting work
     vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
-    updateUniformBuffer(currentFrame, extent, uniformBuffersMapped);
+    updateUniformBuffer(physicalDevice, currentFrame, extent,
+                        uniformBuffersMapped);
 
     vkResetCommandBuffer(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
@@ -3568,8 +3685,8 @@ private:
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
             currentFrame),
         vertexBuffer, indexBuffer, imageIndex, renderPass,
-        swapChainFrameBuffers, extent, graphicsPipeline,
-        isDynamicViewPortAndScissor);
+        swapChainFrameBuffers, extent, graphicsPipeline, pipelineLayout,
+        descriptorSets, currentFrame, isDynamicViewPortAndScissor);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -3638,6 +3755,8 @@ private:
       VkImage &image_unp, VkDeviceMemory &imageMemory_unp,
       VkImageView &imageView_unp, VkFormat &imageFormat_unp,
       VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
+      VkPipelineLayout pipelineLayout_unp,
+      std::vector<VkDescriptorSet> &descriptorSets_unp,
       VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
       VkBuffer indexBuffer_unp, std::vector<void *> &uniformBuffersMapped_unp,
       std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
@@ -3664,7 +3783,8 @@ private:
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
 
-    updateUniformBuffer(currentFrame, extent, uniformBuffersMapped_unp);
+    updateUniformBuffer(physicalDevice_unp, currentFrame, extent,
+                        uniformBuffersMapped_unp);
 
     if (deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueIndex() ==
         deviceQueueCommandUnitSet_unp.getDeviceTransferQueueIndex()) {
@@ -3677,9 +3797,9 @@ private:
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
           vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
-          frameBuffer_unp, extent, graphicsPipeline_unp,
-          stagingBuffers_unp[currentFrame], stagingBufferSize,
-          isDynamicViewPortAndScissor);
+          frameBuffer_unp, extent, graphicsPipeline_unp, pipelineLayout_unp,
+          descriptorSets_unp, stagingBuffers_unp[currentFrame],
+          stagingBufferSize, isDynamicViewPortAndScissor);
 
       VkSubmitInfo submitInfo_unp{};
       VkCommandBuffer commandBuffers_unp[] = {
@@ -3717,9 +3837,9 @@ private:
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
           vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
-          frameBuffer_unp, extent, graphicsPipeline_unp,
-          stagingBuffers_unp[currentFrame], stagingBufferSize,
-          isDynamicViewPortAndScissor);
+          frameBuffer_unp, extent, graphicsPipeline_unp, pipelineLayout_unp,
+          descriptorSets_unp, stagingBuffers_unp[currentFrame],
+          stagingBufferSize, isDynamicViewPortAndScissor);
 
       VkSubmitInfo renderSubmitInfo_unp{};
       VkCommandBuffer renderCommandBuffers_unp[] = {
@@ -3917,18 +4037,19 @@ private:
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       if (!isSplitRenderPresentMode) {
-        drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
-                  presentableDeviceQueueCommandUnitSet, window,
-                  presentableWindowSurface, presentableSwapChain,
-                  presentableSwapChainImages, presentableSwapChainImageViews,
-                  presentableSwapChainImageFormat, presentableSwapChainExtent,
-                  presentableRenderPass, presentableSwapChainFrameBuffers,
-                  presentableGraphicsPipeline, presentableVertexBuffer,
-                  presentableIndexBuffer, presentableUniformBuffersMapped,
-                  presentableImageAvailableSemaphores,
-                  presentableRenderingFinishedSemaphores,
-                  presentableInFlightFences,
-                  DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+        drawFrame(
+            presentablePhysicalDevice, presentableLogicalDevice,
+            presentableDeviceQueueCommandUnitSet, window,
+            presentableWindowSurface, presentableSwapChain,
+            presentableSwapChainImages, presentableSwapChainImageViews,
+            presentableSwapChainImageFormat, presentableSwapChainExtent,
+            presentableRenderPass, presentableSwapChainFrameBuffers,
+            presentableGraphicsPipeline, presentableGraphicsPipelineLayout,
+            presentableDescriptorSets, presentableVertexBuffer,
+            presentableIndexBuffer, presentableUniformBuffersMapped,
+            presentableImageAvailableSemaphores,
+            presentableRenderingFinishedSemaphores, presentableInFlightFences,
+            DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
       } else {
         drawFrame2(
             unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
@@ -3936,8 +4057,10 @@ private:
             unpresentableDeviceImages[0], unpresentableDeviceImageMemories[0],
             unpresentableDeviceImageViews[0], presentableSwapChainImageFormat,
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
-            unpresentableDeviceFrameBuffers[0], unpresentableVertexBuffers[0],
-            unpresentableIndexBuffers[0], unpresentableUniformBuffersMapped[0],
+            unpresentableGraphicsPipelineLayouts[0],
+            unpresentableDescriptorSets[0], unpresentableDeviceFrameBuffers[0],
+            unpresentableVertexBuffers[0], unpresentableIndexBuffers[0],
+            unpresentableUniformBuffersMapped[0],
             unpresentableRenderingFinishedSemaphores[0],
             unpresentableInterDeviceFences[0],
             unpresentableImageStagingBuffers[0],
@@ -4025,6 +4148,9 @@ private:
                             unpresentableUniformBuffersMemories[i],
                             unpresentableUniformBuffersMapped[i]);
 
+      vkDestroyDescriptorPool(unpresentableLogicalDevices[i],
+                              unpresentableDescriptorPools[i], nullptr);
+
       vkDestroyDescriptorSetLayout(unpresentableLogicalDevices[i],
                                    unpresentableDescriptorSetLayouts[i],
                                    nullptr);
@@ -4069,6 +4195,9 @@ private:
     destroyUniformBuffers(presentableLogicalDevice, presentableUniformBuffers,
                           presentableUniformBuffersMemory,
                           presentableUniformBuffersMapped);
+
+    vkDestroyDescriptorPool(presentableLogicalDevice, presentableDescriptorPool,
+                            nullptr);
 
     vkDestroyDescriptorSetLayout(presentableLogicalDevice,
                                  presentableDescriptorSetLayout, nullptr);
