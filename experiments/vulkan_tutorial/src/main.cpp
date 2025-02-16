@@ -4,6 +4,9 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
 
 #include <cstdlib>
 #include <iostream>
@@ -925,6 +928,12 @@ struct Vertex {
   }
 };
 
+struct UniformBufferObject {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+};
+
 // const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 //                                       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
 //                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
@@ -969,6 +978,8 @@ private:
   VkExtent2D presentableSwapChainExtent;
   std::vector<VkImageView> presentableSwapChainImageViews;
 
+  VkDescriptorSetLayout presentableDescriptorSetLayout;
+
   VkPipelineLayout presentableGraphicsPipelineLayout;
   VkRenderPass presentableRenderPass;
   VkPipeline presentableGraphicsPipeline;
@@ -980,6 +991,10 @@ private:
 
   VkBuffer presentableIndexBuffer;
   VkDeviceMemory presentableIndexBufferMemory;
+
+  std::vector<VkBuffer> presentableUniformBuffers;
+  std::vector<VkDeviceMemory> presentableUniformBuffersMemory;
+  std::vector<void *> presentableUniformBuffersMapped;
 
   std::vector<VkSemaphore> presentableImageAvailableSemaphores;
   std::vector<VkSemaphore> presentableRenderingFinishedSemaphores;
@@ -1001,6 +1016,8 @@ private:
   std::vector<VkDeviceMemory> unpresentableDeviceImageMemories;
   std::vector<VkImageView> unpresentableDeviceImageViews;
 
+  std::vector<VkDescriptorSetLayout> unpresentableDescriptorSetLayouts;
+
   std::vector<VkPipelineLayout> unpresentableGraphicsPipelineLayouts;
   std::vector<VkRenderPass> unpresentableRenderPasses;
   std::vector<VkPipeline> unpresentableGraphicsPipelines;
@@ -1012,6 +1029,10 @@ private:
 
   std::vector<VkBuffer> unpresentableIndexBuffers;
   std::vector<VkDeviceMemory> unpresentableIndexBuffersMemories;
+
+  std::vector<std::vector<VkBuffer>> unpresentableUniformBuffers;
+  std::vector<std::vector<VkDeviceMemory>> unpresentableUniformBuffersMemories;
+  std::vector<std::vector<void *>> unpresentableUniformBuffersMapped;
 
   std::vector<std::vector<VkSemaphore>>
       unpresentableRenderingFinishedSemaphores;
@@ -1668,7 +1689,7 @@ private:
     VkMemoryRequirements memRequirements;
     vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
 
-    assert(bufferSize == memRequirements.size);
+    // assert(bufferSize == memRequirements.size);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -2068,13 +2089,41 @@ private:
     }
   }
 
-  static void createGraphicsPipelineLayout(VkPhysicalDevice physicalDevice,
-                                           VkDevice logicalDevice,
-                                           VkPipelineLayout &pipelineLayout) {
+  static void
+  createDescriptorSetLayout(VkPhysicalDevice physicalDevice,
+                            VkDevice logicalDevice,
+                            VkDescriptorSetLayout &descriptorSetLayout) {
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+                                                   //
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr,
+                                    &descriptorSetLayout) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create descriptor set layout!");
+    } else {
+      std::cout << "Creating Descriptor Set Layout for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
+  static void
+  createGraphicsPipelineLayout(VkPhysicalDevice physicalDevice,
+                               VkDevice logicalDevice,
+                               VkDescriptorSetLayout descriptorSetLayout,
+                               VkPipelineLayout &pipelineLayout) {
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;            // Optional
-    pipelineLayoutInfo.pSetLayouts = nullptr;         // Optional
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;    // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -2513,6 +2562,73 @@ private:
 
     vkDestroyBuffer(logicalDevice, indicesStagingBuffer, nullptr);
     vkFreeMemory(logicalDevice, indicesStagingBufferMemory, nullptr);
+  }
+
+  static void createUniformBuffers(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      std::vector<VkBuffer> &uniformBuffers,
+      std::vector<VkDeviceMemory> &uniformBuffersMemories,
+      std::vector<void *> &uniformBuffersMapped) {
+
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMemories.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      createBuffer(physicalDevice, logicalDevice, deviceQueueCommandUnitSet,
+                   bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                   uniformBuffers[i], uniformBuffersMemories[i]);
+
+      vkMapMemory(logicalDevice, uniformBuffersMemories[i], 0, bufferSize, 0,
+                  &uniformBuffersMapped[i]);
+    }
+
+    std::cout << "Created Uniform Buffers for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+  }
+
+  static void
+  destroyUniformBuffers(VkDevice logicalDevice,
+                        std::vector<VkBuffer> &uniformBuffers,
+                        std::vector<VkDeviceMemory> &uniformBuffersMemories,
+                        std::vector<void *> &uniformBuffersMapped) {
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
+      vkFreeMemory(logicalDevice, uniformBuffersMemories[i], nullptr);
+    }
+  }
+
+  static void updateUniformBuffer(uint32_t currentImage,
+                                  VkExtent2D swapChainExtent,
+                                  std::vector<void *> &uniformBuffersMapped) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                     currentTime - startTime)
+                     .count();
+
+    UniformBufferObject ubo{};
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+                            glm::vec3(0.0f, 0.0f, 1.0f));
+
+    ubo.view =
+        glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm ::vec3(0.0f, 0.0f, 0.0f),
+                    glm::vec3(0.0f, 0.0f, 1.0f));
+
+    ubo.proj = glm::perspective(
+        glm::radians(45.0f),
+        swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+
+    ubo.proj[1][1] *= -1;
+
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
   }
 
   static void recordCommandBufferForPresentation(
@@ -3136,9 +3252,13 @@ private:
                      presentableSwapChainImageFormat,
                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, presentableRenderPass);
 
-    createGraphicsPipelineLayout(presentablePhysicalDevice,
-                                 presentableLogicalDevice,
-                                 presentableGraphicsPipelineLayout);
+    createDescriptorSetLayout(presentablePhysicalDevice,
+                              presentableLogicalDevice,
+                              presentableDescriptorSetLayout);
+
+    createGraphicsPipelineLayout(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableDescriptorSetLayout, presentableGraphicsPipelineLayout);
 
     createGraphicsPipeline(
         presentablePhysicalDevice, presentableLogicalDevice,
@@ -3163,6 +3283,11 @@ private:
                       presentableDeviceQueueCommandUnitSet,
                       presentableIndexBuffer, presentableIndexBufferMemory);
 
+    createUniformBuffers(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableDeviceQueueCommandUnitSet, presentableUniformBuffers,
+        presentableUniformBuffersMemory, presentableUniformBuffersMapped);
+
     createSyncObjectsForPresentation(
         presentablePhysicalDevice, presentableLogicalDevice,
         presentableImageAvailableSemaphores,
@@ -3182,6 +3307,9 @@ private:
         unpresentablePhysicalDevices.size());
     unpresentableDeviceImageViews.resize(unpresentablePhysicalDevices.size());
 
+    unpresentableDescriptorSetLayouts.resize(
+        unpresentablePhysicalDevices.size());
+
     unpresentableGraphicsPipelineLayouts.resize(
         unpresentablePhysicalDevices.size());
     unpresentableRenderPasses.resize(unpresentablePhysicalDevices.size());
@@ -3194,6 +3322,12 @@ private:
 
     unpresentableIndexBuffers.resize(unpresentablePhysicalDevices.size());
     unpresentableIndexBuffersMemories.resize(
+        unpresentablePhysicalDevices.size());
+
+    unpresentableUniformBuffers.resize(unpresentablePhysicalDevices.size());
+    unpresentableUniformBuffersMemories.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableUniformBuffersMapped.resize(
         unpresentablePhysicalDevices.size());
 
     unpresentableRenderingFinishedSemaphores.resize(
@@ -3230,8 +3364,13 @@ private:
           presentableSwapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
           unpresentableRenderPasses[i]);
 
+      createDescriptorSetLayout(unpresentablePhysicalDevices[i],
+                                unpresentableLogicalDevices[i],
+                                unpresentableDescriptorSetLayouts[i]);
+
       createGraphicsPipelineLayout(unpresentablePhysicalDevices[i],
                                    unpresentableLogicalDevices[i],
+                                   unpresentableDescriptorSetLayouts[i],
                                    unpresentableGraphicsPipelineLayouts[i]);
 
       createGraphicsPipeline(
@@ -3258,6 +3397,13 @@ private:
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceQueueCommandUnitSet[i],
           unpresentableIndexBuffers[i], unpresentableIndexBuffersMemories[i]);
+
+      createUniformBuffers(unpresentablePhysicalDevices[i],
+                           unpresentableLogicalDevices[i],
+                           unpresentableDeviceQueueCommandUnitSet[i],
+                           unpresentableUniformBuffers[i],
+                           unpresentableUniformBuffersMemories[i],
+                           unpresentableUniformBuffersMapped[i]);
 
       createSyncObjectsForUnpresentableDevice(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -3379,6 +3525,7 @@ private:
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
                  VkPipeline graphicsPipeline, VkBuffer vertexBuffer,
                  VkBuffer indexBuffer,
+                 std::vector<void *> &uniformBuffersMapped,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
                  std::vector<VkFence> inFlightFences,
@@ -3408,6 +3555,8 @@ private:
 
     // Only reset the fence if we are submitting work
     vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+
+    updateUniformBuffer(currentFrame, extent, uniformBuffersMapped);
 
     vkResetCommandBuffer(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
@@ -3490,7 +3639,7 @@ private:
       VkImageView &imageView_unp, VkFormat &imageFormat_unp,
       VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
       VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
-      VkBuffer indexBuffer_unp,
+      VkBuffer indexBuffer_unp, std::vector<void *> &uniformBuffersMapped_unp,
       std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
       std::vector<VkFence> &interDeviceFences_unp,
       std::vector<VkBuffer> &stagingBuffers_unp,
@@ -3514,6 +3663,8 @@ private:
 
     vkWaitForFences(logicalDevice_p, 1, &inFlightFences_p[currentFrame],
                     VK_TRUE, UINT64_MAX);
+
+    updateUniformBuffer(currentFrame, extent, uniformBuffersMapped_unp);
 
     if (deviceQueueCommandUnitSet_unp.getDeviceGraphicsQueueIndex() ==
         deviceQueueCommandUnitSet_unp.getDeviceTransferQueueIndex()) {
@@ -3773,7 +3924,8 @@ private:
                   presentableSwapChainImageFormat, presentableSwapChainExtent,
                   presentableRenderPass, presentableSwapChainFrameBuffers,
                   presentableGraphicsPipeline, presentableVertexBuffer,
-                  presentableIndexBuffer, presentableImageAvailableSemaphores,
+                  presentableIndexBuffer, presentableUniformBuffersMapped,
+                  presentableImageAvailableSemaphores,
                   presentableRenderingFinishedSemaphores,
                   presentableInFlightFences,
                   DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
@@ -3785,7 +3937,7 @@ private:
             unpresentableDeviceImageViews[0], presentableSwapChainImageFormat,
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
             unpresentableDeviceFrameBuffers[0], unpresentableVertexBuffers[0],
-            unpresentableIndexBuffers[0],
+            unpresentableIndexBuffers[0], unpresentableUniformBuffersMapped[0],
             unpresentableRenderingFinishedSemaphores[0],
             unpresentableInterDeviceFences[0],
             unpresentableImageStagingBuffers[0],
@@ -3868,6 +4020,15 @@ private:
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
           unpresentableDeviceFrameBuffers[i]);
 
+      destroyUniformBuffers(unpresentableLogicalDevices[i],
+                            unpresentableUniformBuffers[i],
+                            unpresentableUniformBuffersMemories[i],
+                            unpresentableUniformBuffersMapped[i]);
+
+      vkDestroyDescriptorSetLayout(unpresentableLogicalDevices[i],
+                                   unpresentableDescriptorSetLayouts[i],
+                                   nullptr);
+
       vkDestroyBuffer(unpresentableLogicalDevices[i],
                       unpresentableIndexBuffers[i], nullptr);
       vkFreeMemory(unpresentableLogicalDevices[i],
@@ -3904,6 +4065,13 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    destroyUniformBuffers(presentableLogicalDevice, presentableUniformBuffers,
+                          presentableUniformBuffersMemory,
+                          presentableUniformBuffersMapped);
+
+    vkDestroyDescriptorSetLayout(presentableLogicalDevice,
+                                 presentableDescriptorSetLayout, nullptr);
 
     vkDestroyBuffer(presentableLogicalDevice, presentableIndexBuffer, nullptr);
     vkFreeMemory(presentableLogicalDevice, presentableIndexBufferMemory,
