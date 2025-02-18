@@ -1956,6 +1956,21 @@ private:
     return createInfo;
   }
 
+  static VkImageView createImageView(VkDevice logicalDevice, VkImage image,
+                                     VkFormat format) {
+
+    VkImageView imageView;
+    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
+
+    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
+        VK_SUCCESS) {
+      throw std::runtime_error(
+          "failed to create image views for presentation!");
+    }
+
+    return imageView;
+  }
+
   static void
   createImageViewsForPresentation(std::vector<VkImage> &images, VkFormat format,
                                   VkPhysicalDevice physicalDevice,
@@ -1963,33 +1978,22 @@ private:
                                   std::vector<VkImageView> &imageViews) {
     imageViews.resize(images.size());
     for (size_t i = 0; i < images.size(); i++) {
-      VkImageViewCreateInfo createInfo =
-          fillImageViewCreateInfo(images[i], format);
 
-      if (vkCreateImageView(logicalDevice, &createInfo, nullptr,
-                            &imageViews[i]) != VK_SUCCESS) {
-        throw std::runtime_error(
-            "failed to create image views for presentation!");
-      } else {
-        std::cout << "Created image view \"" << i << "\" for device \""
-                  << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-      }
+      imageViews[i] = createImageView(logicalDevice, images[i], format);
+
+      std::cout << "Created image view \"" << i << "\" for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
   }
 
   static void createImageViewForUnpresentableDevice(
       VkImage image, VkFormat format, VkPhysicalDevice physicalDevice,
       VkDevice logicalDevice, VkImageView &imageView) {
-    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
 
-    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
-        VK_SUCCESS) {
-      throw std::runtime_error(
-          "failed to create image views for presentation!");
-    } else {
-      std::cout << "Created image view \"0\" for device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
+    imageView = createImageView(logicalDevice, image, format);
+
+    std::cout << "Created image view \"0\" for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static void
