@@ -1013,6 +1013,7 @@ private:
 
   VkImage presentableTextureImage;
   VkDeviceMemory presentableTextureImageMemory;
+  VkImageView presentableTextureImageView;
 
   uint32_t currentFrame = 0;
 
@@ -1057,6 +1058,7 @@ private:
 
   std::vector<VkImage> unpresentableTextureImages;
   std::vector<VkDeviceMemory> unpresentableTextureImagesMemories;
+  std::vector<VkImageView> unpresentableTextureImagesViews;
 
   bool frameBufferResized = false;
 
@@ -1965,6 +1967,21 @@ private:
     return createInfo;
   }
 
+  static VkImageView createImageView(VkDevice logicalDevice, VkImage image,
+                                     VkFormat format) {
+
+    VkImageView imageView;
+    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
+
+    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
+        VK_SUCCESS) {
+      throw std::runtime_error(
+          "failed to create image views for presentation!");
+    }
+
+    return imageView;
+  }
+
   static void
   createImageViewsForPresentation(std::vector<VkImage> &images, VkFormat format,
                                   VkPhysicalDevice physicalDevice,
@@ -1972,33 +1989,22 @@ private:
                                   std::vector<VkImageView> &imageViews) {
     imageViews.resize(images.size());
     for (size_t i = 0; i < images.size(); i++) {
-      VkImageViewCreateInfo createInfo =
-          fillImageViewCreateInfo(images[i], format);
 
-      if (vkCreateImageView(logicalDevice, &createInfo, nullptr,
-                            &imageViews[i]) != VK_SUCCESS) {
-        throw std::runtime_error(
-            "failed to create image views for presentation!");
-      } else {
-        std::cout << "Created image view \"" << i << "\" for device \""
-                  << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-      }
+      imageViews[i] = createImageView(logicalDevice, images[i], format);
+
+      std::cout << "Created image view \"" << i << "\" for device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
   }
 
   static void createImageViewForUnpresentableDevice(
       VkImage image, VkFormat format, VkPhysicalDevice physicalDevice,
       VkDevice logicalDevice, VkImageView &imageView) {
-    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
 
-    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
-        VK_SUCCESS) {
-      throw std::runtime_error(
-          "failed to create image views for presentation!");
-    } else {
-      std::cout << "Created image view \"0\" for device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
-    }
+    imageView = createImageView(logicalDevice, image, format);
+
+    std::cout << "Created image view \"0\" for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static void
@@ -2704,6 +2710,18 @@ private:
     vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 
     std::cout << "Created Texture image!\n";
+  }
+
+  static void createTextureImageView(VkPhysicalDevice physicalDevice,
+                                     VkDevice logicalDevice,
+                                     VkImage textureImage,
+                                     VkImageView &textureImageView) {
+
+    textureImageView =
+        createImageView(logicalDevice, textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+
+    std::cout << "Created Texture Image View for Device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static void
@@ -3606,6 +3624,10 @@ private:
                        presentableDeviceQueueCommandUnitSet,
                        presentableTextureImage, presentableTextureImageMemory);
 
+    createTextureImageView(presentablePhysicalDevice, presentableLogicalDevice,
+                           presentableTextureImage,
+                           presentableTextureImageView);
+
     createVertexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
                        presentableDeviceQueueCommandUnitSet,
                        presentableVertexBuffer, presentableVertexBufferMemory);
@@ -3687,6 +3709,8 @@ private:
     unpresentableTextureImagesMemories.resize(
         unpresentablePhysicalDevices.size());
 
+    unpresentableTextureImagesViews.resize(unpresentablePhysicalDevices.size());
+
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
       createLogicalDevice(unpresentablePhysicalDevices[i],
                           presentableWindowSurface,
@@ -3738,6 +3762,10 @@ private:
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceQueueCommandUnitSet[i],
           unpresentableTextureImages[i], unpresentableTextureImagesMemories[i]);
+
+      createTextureImageView(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableTextureImages[i], unpresentableTextureImagesViews[i]);
 
       createVertexBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -4388,6 +4416,9 @@ private:
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
           unpresentableDeviceFrameBuffers[i]);
 
+      vkDestroyImageView(unpresentableLogicalDevices[i],
+                         unpresentableTextureImagesViews[i], nullptr);
+
       vkDestroyImage(unpresentableLogicalDevices[i],
                      unpresentableTextureImages[i], nullptr);
       vkFreeMemory(unpresentableLogicalDevices[i],
@@ -4441,6 +4472,9 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    vkDestroyImageView(presentableLogicalDevice, presentableTextureImageView,
+                       nullptr);
 
     vkDestroyImage(presentableLogicalDevice, presentableTextureImage, nullptr);
     vkFreeMemory(presentableLogicalDevice, presentableTextureImageMemory,
