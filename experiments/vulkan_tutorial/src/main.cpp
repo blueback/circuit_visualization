@@ -2451,15 +2451,9 @@ private:
         });
   }
 
-  static void
-  copyBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-             const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-             VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize) {
-
-    VkCommandPool commandPool;
-    createCommandPool(physicalDevice, logicalDevice,
-                      deviceQueueCommandUnitSet.getDeviceTransferQueueIndex(),
-                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, commandPool);
+  static VkCommandBuffer
+  beginSingleTimeCommands(VkPhysicalDevice physicalDevice,
+                          VkDevice logicalDevice, VkCommandPool commandPool) {
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -2478,13 +2472,14 @@ private:
       throw std::runtime_error("failed to begin command buffer recording");
     }
 
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = bufferSize;
+    return commandBuffer;
+  }
 
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
+  static void endSingleTimeCommands(VkPhysicalDevice physicalDevice,
+                                    VkDevice logicalDevice,
+                                    VkCommandPool commandPool,
+                                    VkCommandBuffer commandBuffer,
+                                    VkQueue commandQueue) {
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
       throw std::runtime_error("failed to end the recording of command buffer");
     }
@@ -2494,14 +2489,55 @@ private:
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    if (vkQueueSubmit(deviceQueueCommandUnitSet.getDeviceTransferQueue(), 1,
-                      &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    if (vkQueueSubmit(commandQueue, 1, &submitInfo, VK_NULL_HANDLE) !=
+        VK_SUCCESS) {
       throw std::runtime_error("failed to submit command to queue");
     }
 
-    vkQueueWaitIdle(deviceQueueCommandUnitSet.getDeviceTransferQueue());
+    vkQueueWaitIdle(commandQueue);
 
     vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+  }
+
+  static void withSingleTimeCommandExecution(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      VkQueue commandQueue, VkCommandPool commandPool,
+      std::function<IteratorStatus(const VkCommandBuffer &)> f) {
+
+    VkCommandBuffer commandBuffer =
+        beginSingleTimeCommands(physicalDevice, logicalDevice, commandPool);
+
+    if (f(commandBuffer) == IterationBreak) {
+      return;
+    }
+
+    endSingleTimeCommands(physicalDevice, logicalDevice, commandPool,
+                          commandBuffer, commandQueue);
+  }
+
+  static void
+  copyBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+             const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+             VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize) {
+
+    VkCommandPool commandPool;
+    createCommandPool(physicalDevice, logicalDevice,
+                      deviceQueueCommandUnitSet.getDeviceTransferQueueIndex(),
+                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, commandPool);
+
+    withSingleTimeCommandExecution(
+        physicalDevice, logicalDevice,
+        deviceQueueCommandUnitSet.getDeviceTransferQueue(), commandPool,
+        [&](const VkCommandBuffer &commandBuffer) {
+          VkBufferCopy copyRegion{};
+          copyRegion.srcOffset = 0; // Optional
+          copyRegion.dstOffset = 0; // Optional
+          copyRegion.size = bufferSize;
+
+          vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+          return IterationContinue;
+        });
 
     vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
   }
