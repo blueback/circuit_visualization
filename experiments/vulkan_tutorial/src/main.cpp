@@ -1778,7 +1778,7 @@ private:
   createImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
               const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
               uint32_t width, uint32_t height, VkFormat format,
-              VkImageUsageFlags imageUsage,
+              VkImageTiling tiling, VkImageUsageFlags imageUsage,
               VkMemoryPropertyFlags memoryProperties, VkImage &image,
               VkDeviceMemory &imageMemory) {
 
@@ -1791,10 +1791,11 @@ private:
     createInfo.mipLevels = 1;
     createInfo.arrayLayers = 1;
     createInfo.format = format;
-    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    createInfo.tiling = tiling;
     createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     createInfo.usage = imageUsage;
     createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    createInfo.flags = 0; // Optional
 
     std::vector<uint32_t> uniqueQueueFamiliesArray =
         DeviceQueueCommandUnitSet::getUniqueQueueFamiliesIndices(
@@ -1923,7 +1924,7 @@ private:
       VkDeviceMemory &imageMemory) {
 
     createImage(physicalDevice, logicalDevice, deviceQueueCommandUnitSet, width,
-                height, format,
+                height, format, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, imageMemory);
@@ -2105,7 +2106,7 @@ private:
     uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-                                                   //
+
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = 1;
