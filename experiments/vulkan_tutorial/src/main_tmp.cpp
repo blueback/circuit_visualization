@@ -1015,6 +1015,8 @@ private:
   VkDeviceMemory presentableTextureImageMemory;
   VkImageView presentableTextureImageView;
 
+  VkSampler presentableTextureSampler;
+
   uint32_t currentFrame = 0;
 
   std::vector<VkPhysicalDevice> unpresentablePhysicalDevices;
@@ -1059,6 +1061,8 @@ private:
   std::vector<VkImage> unpresentableTextureImages;
   std::vector<VkDeviceMemory> unpresentableTextureImagesMemories;
   std::vector<VkImageView> unpresentableTextureImagesViews;
+
+  std::vector<VkSampler> unpresentableTextureSamplers;
 
   bool frameBufferResized = false;
 
@@ -1363,6 +1367,19 @@ private:
     return true;
   }
 
+  static bool isSamplerAnisotropySupportedByPhysicalDevice(
+      VkPhysicalDevice physicalDevice) {
+    VkPhysicalDeviceFeatures deviceFeatures;
+
+    vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+
+    if (!deviceFeatures.samplerAnisotropy) {
+      return false;
+    }
+
+    return true;
+  }
+
   static bool
   isExtensionSupportedByPhysicalDevice(VkPhysicalDevice physicalDevice,
                                        const char *extensionName) {
@@ -1410,7 +1427,8 @@ private:
 
     if (isPhysicalDeviceDedicatedGPU(device) ||
         isPhysicalDeviceIntegratedGPU(device) || isPhysicalDeviceCPU(device)) {
-      if (isGeometryShaderSupportedByPhysicalDevice(device)) {
+      if (isGeometryShaderSupportedByPhysicalDevice(device) &&
+          isSamplerAnisotropySupportedByPhysicalDevice(device)) {
         return true;
       }
     }
@@ -1632,6 +1650,7 @@ private:
     }
 
     VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -2724,6 +2743,44 @@ private:
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
+  static void createTextureSampler(VkPhysicalDevice physicalDevice,
+                                   VkDevice logicalDevice,
+                                   VkSampler &textureSampler) {
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr,
+                        &textureSampler) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create texture sampler!");
+    } else {
+      std::cout << "Created Texture Sampler for Device \""
+                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    }
+  }
+
   static void
   copyBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
              const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
@@ -3628,6 +3685,9 @@ private:
                            presentableTextureImage,
                            presentableTextureImageView);
 
+    createTextureSampler(presentablePhysicalDevice, presentableLogicalDevice,
+                         presentableTextureSampler);
+
     createVertexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
                        presentableDeviceQueueCommandUnitSet,
                        presentableVertexBuffer, presentableVertexBufferMemory);
@@ -3709,6 +3769,8 @@ private:
     unpresentableTextureImagesMemories.resize(
         unpresentablePhysicalDevices.size());
 
+    unpresentableTextureSamplers.resize(unpresentablePhysicalDevices.size());
+
     unpresentableTextureImagesViews.resize(unpresentablePhysicalDevices.size());
 
     for (uint32_t i = 0; i < unpresentablePhysicalDevices.size(); i++) {
@@ -3766,6 +3828,10 @@ private:
       createTextureImageView(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableTextureImages[i], unpresentableTextureImagesViews[i]);
+
+      createTextureSampler(unpresentablePhysicalDevices[i],
+                           unpresentableLogicalDevices[i],
+                           unpresentableTextureSamplers[i]);
 
       createVertexBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -4416,6 +4482,9 @@ private:
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
           unpresentableDeviceFrameBuffers[i]);
 
+      vkDestroySampler(unpresentableLogicalDevices[i],
+                       unpresentableTextureSamplers[i], nullptr);
+
       vkDestroyImageView(unpresentableLogicalDevices[i],
                          unpresentableTextureImagesViews[i], nullptr);
 
@@ -4472,6 +4541,9 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    vkDestroySampler(presentableLogicalDevice, presentableTextureSampler,
+                     nullptr);
 
     vkDestroyImageView(presentableLogicalDevice, presentableTextureImageView,
                        nullptr);
