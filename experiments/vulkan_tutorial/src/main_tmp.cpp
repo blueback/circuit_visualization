@@ -2544,11 +2544,30 @@ private:
           barrier.subresourceRange.baseArrayLayer = 0;
           barrier.subresourceRange.layerCount = 1;
 
-          barrier.srcAccessMask = 0; // TODO
-          barrier.dstAccessMask = 0; // TODO
+          VkPipelineStageFlags srcStage;
+          VkPipelineStageFlags dstStage;
 
-          vkCmdPipelineBarrier(commandBuffer, 0 /* TODO */, 0 /* TODO */, 0, 0,
-                               nullptr, 0, nullptr, 1, &barrier);
+          if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+              newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+          } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+                     newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+          } else {
+            throw std::invalid_argument("unsupported layout transition!");
+          }
+
+          vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr,
+                               0, nullptr, 1, &barrier);
+
           return IterationContinue;
         });
   }
@@ -2642,6 +2661,8 @@ private:
                             commandPool, textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+      vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
     } else {
       VkCommandPool graphicsCommandPool;
       createCommandPool(physicalDevice, logicalDevice,
@@ -2667,13 +2688,20 @@ private:
                         static_cast<uint32_t>(texWidth),
                         static_cast<uint32_t>(texHeight));
 
+      vkDestroyCommandPool(logicalDevice, transferCommandPool, nullptr);
+
       transitionImageLayout(physicalDevice, logicalDevice,
                             deviceQueueCommandUnitSet.getDeviceGraphicsQueue(),
                             graphicsCommandPool, textureImage,
                             VK_FORMAT_R8G8B8A8_SRGB,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+      vkDestroyCommandPool(logicalDevice, graphicsCommandPool, nullptr);
     }
+
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 
     std::cout << "Created Texture image!\n";
   }
@@ -4360,6 +4388,11 @@ private:
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
           unpresentableDeviceFrameBuffers[i]);
 
+      vkDestroyImage(unpresentableLogicalDevices[i],
+                     unpresentableTextureImages[i], nullptr);
+      vkFreeMemory(unpresentableLogicalDevices[i],
+                   unpresentableTextureImagesMemories[i], nullptr);
+
       destroyUniformBuffers(unpresentableLogicalDevices[i],
                             unpresentableUniformBuffers[i],
                             unpresentableUniformBuffersMemories[i],
@@ -4408,6 +4441,10 @@ private:
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
         presentableSwapChainImageViews);
+
+    vkDestroyImage(presentableLogicalDevice, presentableTextureImage, nullptr);
+    vkFreeMemory(presentableLogicalDevice, presentableTextureImageMemory,
+                 nullptr);
 
     destroyUniformBuffers(presentableLogicalDevice, presentableUniformBuffers,
                           presentableUniformBuffersMemory,
