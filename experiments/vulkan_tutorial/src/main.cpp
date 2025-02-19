@@ -7,8 +7,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_collection/stb_image.h"
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tinyobjloader/tiny_obj_loader.h"
 
 #include <chrono>
 
@@ -16,10 +22,14 @@
 #include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 2;
+
+const std::string MODEL_PATH = "models/viking_room.obj";
+const std::string TEXTURE_PATH = "textures/viking_room.png";
 
 const std::vector<const char *> validationLayers = {
     "VK_LAYER_KHRONOS_validation"};
@@ -936,30 +946,29 @@ struct Vertex {
 
     return attributeDescriptions;
   }
+
+  bool operator==(const Vertex &other) const {
+    return pos == other.pos && color == other.color &&
+           texCoord == other.texCoord;
+  }
 };
+
+namespace std {
+template <> struct hash<Vertex> {
+  size_t operator()(Vertex const &vertex) const {
+    return ((hash<glm::vec3>()(vertex.pos) ^
+             (hash<glm::vec3>()(vertex.color) << 1)) >>
+            1) ^
+           (hash<glm::vec2>()(vertex.texCoord) << 1);
+  }
+};
+}; // namespace std
 
 struct UniformBufferObject {
   alignas(16) glm::mat4 model;
   alignas(16) glm::mat4 view;
   alignas(16) glm::mat4 proj;
 };
-
-// const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-//                                       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-//                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
-
-const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
-
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 class HelloTriangleApplication {
 public:
@@ -980,6 +989,9 @@ private:
   GLFWwindow *window;
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
+
+  std::vector<Vertex> modelVertices;
+  std::vector<uint32_t> modelIndices;
 
   VkSurfaceKHR presentableWindowSurface;
 
@@ -2796,7 +2808,7 @@ private:
                      VkDeviceMemory &textureImageMemory) {
 
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load("textures/texture.jpg", &texWidth, &texHeight,
+    stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight,
                                 &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
@@ -2973,10 +2985,48 @@ private:
     vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
   }
 
+  static void loadModel(std::vector<Vertex> &vertices,
+                        std::vector<uint32_t> &indices) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
+                          MODEL_PATH.c_str())) {
+      throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+    for (const auto &shape : shapes) {
+      for (const auto &index : shape.mesh.indices) {
+        Vertex vertex{};
+
+        vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
+                      attrib.vertices[3 * index.vertex_index + 1],
+                      attrib.vertices[3 * index.vertex_index + 2]};
+
+        vertex.texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
+                           1.0f -
+                               attrib.texcoords[2 * index.texcoord_index + 1]};
+
+        vertex.color = {1.0f, 1.0f, 1.0f};
+
+        if (uniqueVertices.count(vertex) == 0) {
+          uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+          vertices.push_back(vertex);
+        }
+
+        indices.push_back(uniqueVertices[vertex]);
+      }
+    }
+  }
+
   static void
   createVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-                     VkBuffer &vertexBuffer,
+                     std::vector<Vertex> &vertices, VkBuffer &vertexBuffer,
                      VkDeviceMemory &vertexBufferMemory) {
 
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
@@ -3013,7 +3063,8 @@ private:
   static void
   createIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
                     const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-                    VkBuffer &indexBuffer, VkDeviceMemory &indexBufferMemory) {
+                    std::vector<uint32_t> indices, VkBuffer &indexBuffer,
+                    VkDeviceMemory &indexBufferMemory) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
     VkBuffer indicesStagingBuffer;
@@ -3206,10 +3257,10 @@ private:
 
   static void recordCommandBufferForPresentation(
       VkPhysicalDevice physicalDevice, VkCommandBuffer commandBuffer,
-      VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t imageIndex,
-      VkRenderPass renderPass, std::vector<VkFramebuffer> &frameBuffers,
-      VkExtent2D extent, VkPipeline graphicsPipeline,
-      VkPipelineLayout pipelineLayout,
+      std::vector<uint32_t> indices, VkBuffer vertexBuffer,
+      VkBuffer indexBuffer, uint32_t imageIndex, VkRenderPass renderPass,
+      std::vector<VkFramebuffer> &frameBuffers, VkExtent2D extent,
+      VkPipeline graphicsPipeline, VkPipelineLayout pipelineLayout,
       std::vector<VkDescriptorSet> &descriptorSets, const uint32_t currentFrame,
       const bool isDynamicViewPortAndScissor) {
 
@@ -3252,7 +3303,7 @@ private:
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -3382,10 +3433,10 @@ private:
   static void recordCommandBufferForUnpresentableDevice(
       VkPhysicalDevice physicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
-      const uint32_t currentFrame, VkBuffer vertexBuffer, VkBuffer indexBuffer,
-      VkImage image, VkRenderPass renderPass, VkFramebuffer frameBuffer,
-      VkExtent2D extent, VkPipeline graphicsPipeline,
-      VkPipelineLayout pipelineLayout,
+      const uint32_t currentFrame, std::vector<uint32_t> &indices,
+      VkBuffer vertexBuffer, VkBuffer indexBuffer, VkImage image,
+      VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent,
+      VkPipeline graphicsPipeline, VkPipelineLayout pipelineLayout,
       std::vector<VkDescriptorSet> &descriptorSets, VkBuffer stagingBuffer,
       size_t stagingBufferSize, const bool isDynamicViewPortAndScissor) {
 
@@ -3440,7 +3491,7 @@ private:
     vkCmdBindIndexBuffer(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
             currentFrame),
-        indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+        indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -3888,12 +3939,14 @@ private:
     createTextureSampler(presentablePhysicalDevice, presentableLogicalDevice,
                          presentableTextureSampler);
 
+    loadModel(modelVertices, modelIndices);
+
     createVertexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
-                       presentableDeviceQueueCommandUnitSet,
+                       presentableDeviceQueueCommandUnitSet, modelVertices,
                        presentableVertexBuffer, presentableVertexBufferMemory);
 
     createIndexBuffer(presentablePhysicalDevice, presentableLogicalDevice,
-                      presentableDeviceQueueCommandUnitSet,
+                      presentableDeviceQueueCommandUnitSet, modelIndices,
                       presentableIndexBuffer, presentableIndexBufferMemory);
 
     createUniformBuffers(
@@ -4048,12 +4101,12 @@ private:
 
       createVertexBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          unpresentableDeviceQueueCommandUnitSet[i],
+          unpresentableDeviceQueueCommandUnitSet[i], modelVertices,
           unpresentableVertexBuffers[i], unpresentableVertexBuffersMemories[i]);
 
       createIndexBuffer(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          unpresentableDeviceQueueCommandUnitSet[i],
+          unpresentableDeviceQueueCommandUnitSet[i], modelIndices,
           unpresentableIndexBuffers[i], unpresentableIndexBuffersMemories[i]);
 
       createUniformBuffers(unpresentablePhysicalDevices[i],
@@ -4206,7 +4259,8 @@ private:
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
                  VkPipeline graphicsPipeline, VkPipelineLayout pipelineLayout,
                  std::vector<VkDescriptorSet> &descriptorSets,
-                 VkBuffer vertexBuffer, VkBuffer indexBuffer,
+                 std::vector<uint32_t> &indices, VkBuffer vertexBuffer,
+                 VkBuffer indexBuffer,
                  std::vector<void *> &uniformBuffersMapped,
                  std::vector<VkSemaphore> imageAvailableSemaphores,
                  std::vector<VkSemaphore> renderingFinishedSemaphores,
@@ -4251,7 +4305,7 @@ private:
         physicalDevice,
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
             currentFrame),
-        vertexBuffer, indexBuffer, imageIndex, renderPass,
+        indices, vertexBuffer, indexBuffer, imageIndex, renderPass,
         swapChainFrameBuffers, extent, graphicsPipeline, pipelineLayout,
         descriptorSets, currentFrame, isDynamicViewPortAndScissor);
 
@@ -4326,8 +4380,9 @@ private:
       VkFormat &imageFormat_unp, VkRenderPass renderPass_unp,
       VkPipeline graphicsPipeline_unp, VkPipelineLayout pipelineLayout_unp,
       std::vector<VkDescriptorSet> &descriptorSets_unp,
-      VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
-      VkBuffer indexBuffer_unp, std::vector<void *> &uniformBuffersMapped_unp,
+      VkFramebuffer &frameBuffer_unp, std::vector<uint32_t> &indices_unp,
+      VkBuffer vertexBuffer_unp, VkBuffer indexBuffer_unp,
+      std::vector<void *> &uniformBuffersMapped_unp,
       std::vector<VkSemaphore> &renderingFinishedSemaphores_unp,
       std::vector<VkFence> &interDeviceFences_unp,
       std::vector<VkBuffer> &stagingBuffers_unp,
@@ -4366,10 +4421,11 @@ private:
 
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
-          vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
-          frameBuffer_unp, extent, graphicsPipeline_unp, pipelineLayout_unp,
-          descriptorSets_unp, stagingBuffers_unp[currentFrame],
-          stagingBufferSize, isDynamicViewPortAndScissor);
+          indices_unp, vertexBuffer_unp, indexBuffer_unp, image_unp,
+          renderPass_unp, frameBuffer_unp, extent, graphicsPipeline_unp,
+          pipelineLayout_unp, descriptorSets_unp,
+          stagingBuffers_unp[currentFrame], stagingBufferSize,
+          isDynamicViewPortAndScissor);
 
       VkSubmitInfo submitInfo_unp{};
       VkCommandBuffer commandBuffers_unp[] = {
@@ -4406,10 +4462,11 @@ private:
 
       recordCommandBufferForUnpresentableDevice(
           physicalDevice_unp, deviceQueueCommandUnitSet_unp, currentFrame,
-          vertexBuffer_unp, indexBuffer_unp, image_unp, renderPass_unp,
-          frameBuffer_unp, extent, graphicsPipeline_unp, pipelineLayout_unp,
-          descriptorSets_unp, stagingBuffers_unp[currentFrame],
-          stagingBufferSize, isDynamicViewPortAndScissor);
+          indices_unp, vertexBuffer_unp, indexBuffer_unp, image_unp,
+          renderPass_unp, frameBuffer_unp, extent, graphicsPipeline_unp,
+          pipelineLayout_unp, descriptorSets_unp,
+          stagingBuffers_unp[currentFrame], stagingBufferSize,
+          isDynamicViewPortAndScissor);
 
       VkSubmitInfo renderSubmitInfo_unp{};
       VkCommandBuffer renderCommandBuffers_unp[] = {
@@ -4620,7 +4677,7 @@ private:
                   presentableSwapChainExtent, presentableRenderPass,
                   presentableSwapChainFrameBuffers, presentableGraphicsPipeline,
                   presentableGraphicsPipelineLayout, presentableDescriptorSets,
-                  presentableVertexBuffer, presentableIndexBuffer,
+                  modelIndices, presentableVertexBuffer, presentableIndexBuffer,
                   presentableUniformBuffersMapped,
                   presentableImageAvailableSemaphores,
                   presentableRenderingFinishedSemaphores,
@@ -4637,8 +4694,8 @@ private:
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
             unpresentableGraphicsPipelineLayouts[0],
             unpresentableDescriptorSets[0], unpresentableDeviceFrameBuffers[0],
-            unpresentableVertexBuffers[0], unpresentableIndexBuffers[0],
-            unpresentableUniformBuffersMapped[0],
+            modelIndices, unpresentableVertexBuffers[0],
+            unpresentableIndexBuffers[0], unpresentableUniformBuffersMapped[0],
             unpresentableRenderingFinishedSemaphores[0],
             unpresentableInterDeviceFences[0],
             unpresentableImageStagingBuffers[0],
