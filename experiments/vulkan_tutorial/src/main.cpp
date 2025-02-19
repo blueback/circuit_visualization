@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -902,7 +903,7 @@ struct DeviceQueueCommandUnitSet {
 };
 
 struct Vertex {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 texCoord;
 
@@ -920,7 +921,7 @@ struct Vertex {
     std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
     attributeDescriptions[1].binding = 0;
@@ -948,12 +949,17 @@ struct UniformBufferObject {
 //                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 class HelloTriangleApplication {
 public:
@@ -1018,6 +1024,10 @@ private:
   std::vector<void *> presentableImageStagingBuffersData;
   size_t imageStagingBufferSize;
 
+  VkImage presentableDepthImage;
+  VkDeviceMemory presentableDepthImageMemory;
+  VkImageView presentableDepthImageView;
+
   VkImage presentableTextureImage;
   VkDeviceMemory presentableTextureImageMemory;
   VkImageView presentableTextureImageView;
@@ -1064,6 +1074,10 @@ private:
   std::vector<std::vector<VkDeviceMemory>>
       unpresentableImageStagingBuffersMemories;
   std::vector<std::vector<void *>> unpresentableImageStagingBuffersData;
+
+  std::vector<VkImage> unpresentableDepthImages;
+  std::vector<VkDeviceMemory> unpresentableDepthImagesMemories;
+  std::vector<VkImageView> unpresentableDepthImagesViews;
 
   std::vector<VkImage> unpresentableTextureImages;
   std::vector<VkDeviceMemory> unpresentableTextureImagesMemories;
@@ -2108,15 +2122,35 @@ private:
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = findDepthFormat(physicalDevice);
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment,
+                                                          depthAttachment};
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
@@ -2126,10 +2160,13 @@ private:
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                              VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                              VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
@@ -2335,6 +2372,19 @@ private:
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {};  // Optional
+
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -2344,7 +2394,7 @@ private:
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
 
@@ -2385,10 +2435,12 @@ private:
   }
 
   static void createFrameBuffer(VkDevice logicalDevice, VkImageView imageView,
+                                VkImageView depthImageView,
                                 VkRenderPass renderPass, VkExtent2D extent,
                                 VkFramebuffer &frameBuffer) {
     std::vector<VkImageView> attachments;
     attachments.push_back(imageView);
+    attachments.push_back(depthImageView);
 
     VkFramebufferCreateInfo frameBufferInfo =
         createFrameBufferInfo(attachments, renderPass, extent);
@@ -2401,12 +2453,13 @@ private:
 
   static void createFrameBuffersForPresentation(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-      std::vector<VkImageView> &imageViews, VkRenderPass renderPass,
-      VkExtent2D extent, std::vector<VkFramebuffer> &frameBuffers) {
+      std::vector<VkImageView> &imageViews, VkImageView depthImageView,
+      VkRenderPass renderPass, VkExtent2D extent,
+      std::vector<VkFramebuffer> &frameBuffers) {
     frameBuffers.resize(imageViews.size());
     for (size_t i = 0; i < imageViews.size(); i++) {
-      createFrameBuffer(logicalDevice, imageViews[i], renderPass, extent,
-                        frameBuffers[i]);
+      createFrameBuffer(logicalDevice, imageViews[i], depthImageView,
+                        renderPass, extent, frameBuffers[i]);
       std::cout << "Created presentable framebuffer \"" << i
                 << "\" for device \"" << getPhysicalDeviceName(physicalDevice)
                 << "\"" << std::endl;
@@ -2415,10 +2468,10 @@ private:
 
   static void createFrameBufferForUnpresentableDevice(
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
-      VkImageView imageView, VkRenderPass renderPass, VkExtent2D extent,
-      VkFramebuffer &frameBuffer) {
-    createFrameBuffer(logicalDevice, imageView, renderPass, extent,
-                      frameBuffer);
+      VkImageView imageView, VkImageView depthImageView,
+      VkRenderPass renderPass, VkExtent2D extent, VkFramebuffer &frameBuffer) {
+    createFrameBuffer(logicalDevice, imageView, depthImageView, renderPass,
+                      extent, frameBuffer);
     std::cout << "Created unpresentable framebuffer \"0\" for device \""
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
@@ -2587,7 +2640,18 @@ private:
           barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
           barrier.image = image;
-          barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+          if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            if (hasStencilComponent(format)) {
+              barrier.subresourceRange.aspectMask |=
+                  VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+          } else {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+          }
+
           barrier.subresourceRange.baseMipLevel = 0;
           barrier.subresourceRange.levelCount = 1;
           barrier.subresourceRange.baseArrayLayer = 0;
@@ -2610,6 +2674,14 @@ private:
 
             srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+          } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+                     newLayout ==
+                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
           } else {
             throw std::invalid_argument("unsupported layout transition!");
           }
@@ -2647,6 +2719,74 @@ private:
                                  &region);
           return IterationContinue;
         });
+  }
+
+  static VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice,
+                                      const std::vector<VkFormat> &candidates,
+                                      VkImageTiling tiling,
+                                      VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+      VkFormatProperties props;
+      vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+      if (tiling == VK_IMAGE_TILING_LINEAR &&
+          (props.linearTilingFeatures & features) == features) {
+        return format;
+      } else if (tiling == VK_IMAGE_TILING_OPTIMAL &&
+                 (props.optimalTilingFeatures & features) == features) {
+        return format;
+      }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+  }
+
+  static VkFormat findDepthFormat(VkPhysicalDevice physicalDevice) {
+    return findSupportedFormat(physicalDevice,
+                               {VK_FORMAT_D32_SFLOAT,
+                                VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                VK_FORMAT_D24_UNORM_S8_UINT},
+                               VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  }
+
+  static bool hasStencilComponent(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+           format == VK_FORMAT_D24_UNORM_S8_UINT;
+  }
+
+  static void createDepthResources(
+      VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
+      const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
+      VkExtent2D extent, VkImage &depthImage, VkDeviceMemory &depthImageMemory,
+      VkImageView &depthImageView) {
+
+    VkFormat depthFormat = findDepthFormat(physicalDevice);
+
+    createImage(
+        physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent.width,
+        extent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
+
+    depthImageView = createImageView(logicalDevice, depthImage, depthFormat,
+                                     VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    VkCommandPool commandPool;
+    createCommandPool(physicalDevice, logicalDevice,
+                      deviceQueueCommandUnitSet.getDeviceGraphicsQueueIndex(),
+                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, commandPool);
+
+    transitionImageLayout(physicalDevice, logicalDevice,
+                          deviceQueueCommandUnitSet.getDeviceGraphicsQueue(),
+                          commandPool, depthImage, depthFormat,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+
+    std::cout << "Created Depth Image and Image view for device \""
+              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static void
@@ -3095,9 +3235,12 @@ private:
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = extent;
 
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
@@ -3269,9 +3412,12 @@ private:
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = extent;
 
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(
         deviceQueueCommandUnitSet.getDeviceGraphicsQueueCommandBuffer(
@@ -3715,14 +3861,21 @@ private:
         presentableRenderPass, presentableGraphicsPipelineLayout,
         presentableGraphicsPipeline);
 
-    createFrameBuffersForPresentation(
-        presentablePhysicalDevice, presentableLogicalDevice,
-        presentableSwapChainImageViews, presentableRenderPass,
-        presentableSwapChainExtent, presentableSwapChainFrameBuffers);
-
     createDeviceCommandPoolsAndBuffers(presentablePhysicalDevice,
                                        presentableLogicalDevice,
                                        presentableDeviceQueueCommandUnitSet);
+
+    createDepthResources(presentablePhysicalDevice, presentableLogicalDevice,
+                         presentableDeviceQueueCommandUnitSet,
+                         presentableSwapChainExtent, presentableDepthImage,
+                         presentableDepthImageMemory,
+                         presentableDepthImageView);
+
+    createFrameBuffersForPresentation(
+        presentablePhysicalDevice, presentableLogicalDevice,
+        presentableSwapChainImageViews, presentableDepthImageView,
+        presentableRenderPass, presentableSwapChainExtent,
+        presentableSwapChainFrameBuffers);
 
     createTextureImage(presentablePhysicalDevice, presentableLogicalDevice,
                        presentableDeviceQueueCommandUnitSet,
@@ -3813,6 +3966,11 @@ private:
     unpresentableImageStagingBuffersData.resize(
         unpresentablePhysicalDevices.size());
 
+    unpresentableDepthImages.resize(unpresentablePhysicalDevices.size());
+    unpresentableDepthImagesMemories.resize(
+        unpresentablePhysicalDevices.size());
+    unpresentableDepthImagesViews.resize(unpresentablePhysicalDevices.size());
+
     unpresentableTextureImages.resize(unpresentablePhysicalDevices.size());
     unpresentableTextureImagesMemories.resize(
         unpresentablePhysicalDevices.size());
@@ -3859,14 +4017,21 @@ private:
           unpresentableRenderPasses[i], unpresentableGraphicsPipelineLayouts[i],
           unpresentableGraphicsPipelines[i]);
 
-      createFrameBufferForUnpresentableDevice(
-          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
-          unpresentableDeviceImageViews[i], unpresentableRenderPasses[i],
-          presentableSwapChainExtent, unpresentableDeviceFrameBuffers[i]);
-
       createDeviceCommandPoolsAndBuffers(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
           unpresentableDeviceQueueCommandUnitSet[i]);
+
+      createDepthResources(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceQueueCommandUnitSet[i], presentableSwapChainExtent,
+          unpresentableDepthImages[i], unpresentableDepthImagesMemories[i],
+          unpresentableDepthImagesViews[i]);
+
+      createFrameBufferForUnpresentableDevice(
+          unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
+          unpresentableDeviceImageViews[i], unpresentableDepthImagesViews[i],
+          unpresentableRenderPasses[i], presentableSwapChainExtent,
+          unpresentableDeviceFrameBuffers[i]);
 
       createTextureImage(
           unpresentablePhysicalDevices[i], unpresentableLogicalDevices[i],
@@ -3928,7 +4093,8 @@ private:
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       GLFWwindow *window, VkSurfaceKHR windowSurface, VkSwapchainKHR &swapChain,
       std::vector<VkImage> &swapChainImages,
-      std::vector<VkImageView> &swapChainImageViews,
+      std::vector<VkImageView> &swapChainImageViews, VkImage &depthImage,
+      VkDeviceMemory &depthImageMemory, VkImageView &depthImageView,
       VkFormat &swapChainImageFormat, VkExtent2D &swapChainExtent,
       VkRenderPass renderPass,
       std::vector<VkFramebuffer> &swapChainFrameBuffers) {
@@ -3944,21 +4110,26 @@ private:
 
     vkDeviceWaitIdle(logicalDevice);
 
-    cleanupSwapChainOfPresentableDevice(logicalDevice, swapChain,
-                                        swapChainImages, swapChainFrameBuffers,
-                                        swapChainImageViews);
+    cleanupSwapChainOfPresentableDevice(
+        logicalDevice, swapChain, swapChainImages, swapChainFrameBuffers,
+        swapChainImageViews, depthImage, depthImageMemory, depthImageView);
 
     createSwapChainForPresentation(
         physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
         windowSurface, isSplitRenderPresentMode, swapChain, swapChainImages,
         swapChainImageFormat, swapChainExtent);
+
     createImageViewsForPresentation(swapChainImages, swapChainImageFormat,
                                     physicalDevice, logicalDevice,
                                     swapChainImageViews);
 
-    createFrameBuffersForPresentation(physicalDevice, logicalDevice,
-                                      swapChainImageViews, renderPass,
-                                      swapChainExtent, swapChainFrameBuffers);
+    createDepthResources(physicalDevice, logicalDevice,
+                         deviceQueueCommandUnitSet, swapChainExtent, depthImage,
+                         depthImageMemory, depthImageView);
+
+    createFrameBuffersForPresentation(
+        physicalDevice, logicalDevice, swapChainImageViews, depthImageView,
+        renderPass, swapChainExtent, swapChainFrameBuffers);
   }
 
   static void recreateStagingBuffers(
@@ -3997,13 +4168,15 @@ private:
       VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet,
       VkImage &image, VkDeviceMemory &imageMemory, VkImageView &imageView,
-      VkFormat &imageFormat, VkExtent2D extent, VkRenderPass renderPass,
-      VkFramebuffer &frameBuffer) {
+      VkImage &depthImage, VkDeviceMemory &depthImageMemory,
+      VkImageView &depthImageView, VkFormat &imageFormat, VkExtent2D extent,
+      VkRenderPass renderPass, VkFramebuffer &frameBuffer) {
 
     vkDeviceWaitIdle(logicalDevice);
 
     cleanupImageFrameBufferForUnpresentableDevice(
-        logicalDevice, image, imageMemory, imageView, frameBuffer);
+        logicalDevice, image, imageMemory, imageView, depthImage,
+        depthImageMemory, depthImageView, frameBuffer);
 
     createUnpresentableDeviceImage(
         physicalDevice, logicalDevice, deviceQueueCommandUnitSet, extent.width,
@@ -4012,9 +4185,13 @@ private:
     createImageViewForUnpresentableDevice(image, imageFormat, physicalDevice,
                                           logicalDevice, imageView);
 
+    createDepthResources(physicalDevice, logicalDevice,
+                         deviceQueueCommandUnitSet, extent, depthImage,
+                         depthImageMemory, depthImageView);
+
     createFrameBufferForUnpresentableDevice(physicalDevice, logicalDevice,
-                                            imageView, renderPass, extent,
-                                            frameBuffer);
+                                            imageView, depthImageView,
+                                            renderPass, extent, frameBuffer);
   }
 
   void drawFrame(VkPhysicalDevice physicalDevice, VkDevice logicalDevice,
@@ -4023,8 +4200,9 @@ private:
                  VkSwapchainKHR &swapChain,
                  std::vector<VkImage> &swapChainImages,
                  std::vector<VkImageView> &swapChainImageViews,
-                 VkFormat &swapChainImageFormat, VkExtent2D &extent,
-                 VkRenderPass renderPass,
+                 VkImage &depthImage, VkDeviceMemory &depthImageMemory,
+                 VkImageView &depthImageView, VkFormat &swapChainImageFormat,
+                 VkExtent2D &extent, VkRenderPass renderPass,
                  std::vector<VkFramebuffer> &swapChainFrameBuffers,
                  VkPipeline graphicsPipeline, VkPipelineLayout pipelineLayout,
                  std::vector<VkDescriptorSet> &descriptorSets,
@@ -4047,7 +4225,8 @@ private:
       recreateSwapChainForPresentableDevice(
           physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
           windowSurface, swapChain, swapChainImages, swapChainImageViews,
-          swapChainImageFormat, extent, renderPass, swapChainFrameBuffers);
+          depthImage, depthImageMemory, depthImageView, swapChainImageFormat,
+          extent, renderPass, swapChainFrameBuffers);
 
       std::cout << "EXTENT(aq) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
@@ -4127,7 +4306,8 @@ private:
       recreateSwapChainForPresentableDevice(
           physicalDevice, logicalDevice, deviceQueueCommandUnitSet, window,
           windowSurface, swapChain, swapChainImages, swapChainImageViews,
-          swapChainImageFormat, extent, renderPass, swapChainFrameBuffers);
+          depthImage, depthImageMemory, depthImageView, swapChainImageFormat,
+          extent, renderPass, swapChainFrameBuffers);
       std::cout << "EXTENT(pr) -> width:" << extent.width
                 << ", height:" << extent.height << std::endl;
     } else if (result != VK_SUCCESS) {
@@ -4141,9 +4321,10 @@ private:
       VkPhysicalDevice physicalDevice_unp, VkDevice logicalDevice_unp,
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_unp,
       VkImage &image_unp, VkDeviceMemory &imageMemory_unp,
-      VkImageView &imageView_unp, VkFormat &imageFormat_unp,
-      VkRenderPass renderPass_unp, VkPipeline graphicsPipeline_unp,
-      VkPipelineLayout pipelineLayout_unp,
+      VkImageView &imageView_unp, VkImage &depthImage_unp,
+      VkDeviceMemory &depthImageMemory_unp, VkImageView &depthImageView_unp,
+      VkFormat &imageFormat_unp, VkRenderPass renderPass_unp,
+      VkPipeline graphicsPipeline_unp, VkPipelineLayout pipelineLayout_unp,
       std::vector<VkDescriptorSet> &descriptorSets_unp,
       VkFramebuffer &frameBuffer_unp, VkBuffer vertexBuffer_unp,
       VkBuffer indexBuffer_unp, std::vector<void *> &uniformBuffersMapped_unp,
@@ -4156,7 +4337,8 @@ private:
       const DeviceQueueCommandUnitSet &deviceQueueCommandUnitSet_p,
       GLFWwindow *window, VkSurfaceKHR windowSurface_p,
       VkSwapchainKHR &swapChain_p, std::vector<VkImage> &swapChainImages_p,
-      std::vector<VkImageView> &swapChainImageViews_p,
+      std::vector<VkImageView> &swapChainImageViews_p, VkImage &depthImage_p,
+      VkDeviceMemory &depthImageMemory_p, VkImageView &depthImageView_p,
       VkFormat &swapChainImageFormat_p, VkExtent2D &extent,
       VkRenderPass renderPass_p,
       std::vector<VkFramebuffer> &swapChainFrameBuffers_p,
@@ -4308,12 +4490,14 @@ private:
       recreateSwapChainForPresentableDevice(
           physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
           window, windowSurface_p, swapChain_p, swapChainImages_p,
-          swapChainImageViews_p, swapChainImageFormat_p, extent, renderPass_p,
+          swapChainImageViews_p, depthImage_p, depthImageMemory_p,
+          depthImageView_p, swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
 
       recreateFrameBufferforUnpresentableDevice(
           physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
-          image_unp, imageMemory_unp, imageView_unp, imageFormat_unp, extent,
+          image_unp, imageMemory_unp, imageView_unp, depthImage_unp,
+          depthImageMemory_unp, depthImageView_unp, imageFormat_unp, extent,
           renderPass_unp, frameBuffer_unp);
 
       recreateStagingBuffers(
@@ -4396,12 +4580,14 @@ private:
       recreateSwapChainForPresentableDevice(
           physicalDevice_p, logicalDevice_p, deviceQueueCommandUnitSet_p,
           window, windowSurface_p, swapChain_p, swapChainImages_p,
-          swapChainImageViews_p, swapChainImageFormat_p, extent, renderPass_p,
+          swapChainImageViews_p, depthImage_p, depthImageMemory_p,
+          depthImageView_p, swapChainImageFormat_p, extent, renderPass_p,
           swapChainFrameBuffers_p);
 
       recreateFrameBufferforUnpresentableDevice(
           physicalDevice_unp, logicalDevice_unp, deviceQueueCommandUnitSet_unp,
-          image_unp, imageMemory_unp, imageView_unp, imageFormat_unp, extent,
+          image_unp, imageMemory_unp, imageView_unp, depthImage_unp,
+          depthImageMemory_unp, depthImageView_unp, imageFormat_unp, extent,
           renderPass_unp, frameBuffer_unp);
 
       recreateStagingBuffers(
@@ -4425,25 +4611,29 @@ private:
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       if (!isSplitRenderPresentMode) {
-        drawFrame(
-            presentablePhysicalDevice, presentableLogicalDevice,
-            presentableDeviceQueueCommandUnitSet, window,
-            presentableWindowSurface, presentableSwapChain,
-            presentableSwapChainImages, presentableSwapChainImageViews,
-            presentableSwapChainImageFormat, presentableSwapChainExtent,
-            presentableRenderPass, presentableSwapChainFrameBuffers,
-            presentableGraphicsPipeline, presentableGraphicsPipelineLayout,
-            presentableDescriptorSets, presentableVertexBuffer,
-            presentableIndexBuffer, presentableUniformBuffersMapped,
-            presentableImageAvailableSemaphores,
-            presentableRenderingFinishedSemaphores, presentableInFlightFences,
-            DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
+        drawFrame(presentablePhysicalDevice, presentableLogicalDevice,
+                  presentableDeviceQueueCommandUnitSet, window,
+                  presentableWindowSurface, presentableSwapChain,
+                  presentableSwapChainImages, presentableSwapChainImageViews,
+                  presentableDepthImage, presentableDepthImageMemory,
+                  presentableDepthImageView, presentableSwapChainImageFormat,
+                  presentableSwapChainExtent, presentableRenderPass,
+                  presentableSwapChainFrameBuffers, presentableGraphicsPipeline,
+                  presentableGraphicsPipelineLayout, presentableDescriptorSets,
+                  presentableVertexBuffer, presentableIndexBuffer,
+                  presentableUniformBuffersMapped,
+                  presentableImageAvailableSemaphores,
+                  presentableRenderingFinishedSemaphores,
+                  presentableInFlightFences,
+                  DYNAMIC_STATES_FOR_VIEWPORT_SCISSORS);
       } else {
         drawFrame2(
             unpresentablePhysicalDevices[0], unpresentableLogicalDevices[0],
             unpresentableDeviceQueueCommandUnitSet[0],
             unpresentableDeviceImages[0], unpresentableDeviceImageMemories[0],
-            unpresentableDeviceImageViews[0], presentableSwapChainImageFormat,
+            unpresentableDeviceImageViews[0], unpresentableDepthImages[0],
+            unpresentableDepthImagesMemories[0],
+            unpresentableDepthImagesViews[0], presentableSwapChainImageFormat,
             unpresentableRenderPasses[0], unpresentableGraphicsPipelines[0],
             unpresentableGraphicsPipelineLayouts[0],
             unpresentableDescriptorSets[0], unpresentableDeviceFrameBuffers[0],
@@ -4457,8 +4647,10 @@ private:
             presentableLogicalDevice, presentableDeviceQueueCommandUnitSet,
             window, presentableWindowSurface, presentableSwapChain,
             presentableSwapChainImages, presentableSwapChainImageViews,
-            presentableSwapChainImageFormat, presentableSwapChainExtent,
-            presentableRenderPass, presentableSwapChainFrameBuffers,
+            presentableDepthImage, presentableDepthImageMemory,
+            presentableDepthImageView, presentableSwapChainImageFormat,
+            presentableSwapChainExtent, presentableRenderPass,
+            presentableSwapChainFrameBuffers,
             presentableImageAvailableSemaphores,
             presentableRenderingFinishedSemaphores, // using this for
                                                     // copyFinishSemaphore
@@ -4486,7 +4678,13 @@ private:
       VkDevice logicalDevice, VkSwapchainKHR swapChain,
       std::vector<VkImage> &swapChainImages,
       std::vector<VkFramebuffer> &swapChainFrameBuffers,
-      std::vector<VkImageView> &swapChainImageViews) {
+      std::vector<VkImageView> &swapChainImageViews, VkImage depthImage,
+      VkDeviceMemory depthImageMemory, VkImageView depthImageView) {
+
+    vkDestroyImageView(logicalDevice, depthImageView, nullptr);
+    vkDestroyImage(logicalDevice, depthImage, nullptr);
+    vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
+
     destroyFrameBuffersForPresentation(logicalDevice, swapChainFrameBuffers);
 
     destroyImageViewsForPresentation(logicalDevice, swapChainImageViews);
@@ -4498,7 +4696,13 @@ private:
 
   static void cleanupImageFrameBufferForUnpresentableDevice(
       VkDevice logicalDevice, VkImage image, VkDeviceMemory imageMemory,
-      VkImageView imageView, VkFramebuffer frameBuffer) {
+      VkImageView imageView, VkImage depthImage,
+      VkDeviceMemory depthImageMemory, VkImageView depthImageView,
+      VkFramebuffer frameBuffer) {
+
+    vkDestroyImageView(logicalDevice, depthImageView, nullptr);
+    vkDestroyImage(logicalDevice, depthImage, nullptr);
+    vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
 
     vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
 
@@ -4529,7 +4733,8 @@ private:
       cleanupImageFrameBufferForUnpresentableDevice(
           unpresentableLogicalDevices[i], unpresentableDeviceImages[i],
           unpresentableDeviceImageMemories[i], unpresentableDeviceImageViews[i],
-          unpresentableDeviceFrameBuffers[i]);
+          unpresentableDepthImages[i], unpresentableDepthImagesMemories[i],
+          unpresentableDepthImagesViews[i], unpresentableDeviceFrameBuffers[i]);
 
       vkDestroySampler(unpresentableLogicalDevices[i],
                        unpresentableTextureSamplers[i], nullptr);
@@ -4589,7 +4794,8 @@ private:
     cleanupSwapChainOfPresentableDevice(
         presentableLogicalDevice, presentableSwapChain,
         presentableSwapChainImages, presentableSwapChainFrameBuffers,
-        presentableSwapChainImageViews);
+        presentableSwapChainImageViews, presentableDepthImage,
+        presentableDepthImageMemory, presentableDepthImageView);
 
     vkDestroySampler(presentableLogicalDevice, presentableTextureSampler,
                      nullptr);
