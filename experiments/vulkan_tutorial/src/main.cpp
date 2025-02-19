@@ -1971,8 +1971,10 @@ private:
         << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
-  static VkImageViewCreateInfo fillImageViewCreateInfo(VkImage image,
-                                                       VkFormat format) {
+  static VkImageViewCreateInfo
+  fillImageViewCreateInfo(VkImage image, VkFormat format,
+                          VkImageAspectFlags aspectFlags) {
+
     VkImageViewCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     createInfo.image = image;
@@ -1984,7 +1986,7 @@ private:
     createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
-    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    createInfo.subresourceRange.aspectMask = aspectFlags;
     createInfo.subresourceRange.baseMipLevel = 0;
     createInfo.subresourceRange.levelCount = 1;
     createInfo.subresourceRange.baseArrayLayer = 0;
@@ -1994,10 +1996,12 @@ private:
   }
 
   static VkImageView createImageView(VkDevice logicalDevice, VkImage image,
-                                     VkFormat format) {
+                                     VkFormat format,
+                                     VkImageAspectFlags aspectFlags) {
 
     VkImageView imageView;
-    VkImageViewCreateInfo createInfo = fillImageViewCreateInfo(image, format);
+    VkImageViewCreateInfo createInfo =
+        fillImageViewCreateInfo(image, format, aspectFlags);
 
     if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) !=
         VK_SUCCESS) {
@@ -2016,7 +2020,8 @@ private:
     imageViews.resize(images.size());
     for (size_t i = 0; i < images.size(); i++) {
 
-      imageViews[i] = createImageView(logicalDevice, images[i], format);
+      imageViews[i] = createImageView(logicalDevice, images[i], format,
+                                      VK_IMAGE_ASPECT_COLOR_BIT);
 
       std::cout << "Created image view \"" << i << "\" for device \""
                 << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
@@ -2027,7 +2032,8 @@ private:
       VkImage image, VkFormat format, VkPhysicalDevice physicalDevice,
       VkDevice logicalDevice, VkImageView &imageView) {
 
-    imageView = createImageView(logicalDevice, image, format);
+    imageView = createImageView(logicalDevice, image, format,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
     std::cout << "Created image view \"0\" for device \""
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
@@ -2755,7 +2761,8 @@ private:
                                      VkImageView &textureImageView) {
 
     textureImageView =
-        createImageView(logicalDevice, textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+        createImageView(logicalDevice, textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+                        VK_IMAGE_ASPECT_COLOR_BIT);
 
     std::cout << "Created Texture Image View for Device \""
               << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
