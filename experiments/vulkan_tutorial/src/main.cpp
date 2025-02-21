@@ -3161,8 +3161,8 @@ private:
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
-    std::cout << "Updated the Uniform Buffer for device \""
-              << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+    // std::cout << "Updated the Uniform Buffer for device \""
+    //           << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
   }
 
   static void createDescriptorPool(VkPhysicalDevice physicalDevice,
@@ -3273,10 +3273,11 @@ private:
 
       throw std::runtime_error("failed to begin recording command buffer!");
     } else {
-      std::cout << "Begin recording command buffer for presentation with "
-                   "imageIndex \""
-                << imageIndex << "\" for Device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      // std::cout << "Begin recording command buffer for presentation with "
+      //              "imageIndex \""
+      //           << imageIndex << "\" for Device \""
+      //           << getPhysicalDeviceName(physicalDevice) << "\"" <<
+      //           std::endl;
     }
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -3336,10 +3337,11 @@ private:
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
       throw std::runtime_error("failed to record command buffer!");
     } else {
-      std::cout
-          << "End recording command buffer for presentation with imageIndex \""
-          << imageIndex << "\" for Device \""
-          << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      // std::cout
+      //     << "End recording command buffer for presentation with imageIndex
+      //     \""
+      //     << imageIndex << "\" for Device \""
+      //     << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
     }
   }
 
@@ -4332,8 +4334,9 @@ private:
                       inFlightFences[currentFrame]) != VK_SUCCESS) {
       throw std::runtime_error("failed to submit draw command buffer!");
     } else {
-      std::cout << "Submitted draw command buffer for device \""
-                << getPhysicalDeviceName(physicalDevice) << "\"" << std::endl;
+      // std::cout << "Submitted draw command buffer for device \""
+      //           << getPhysicalDeviceName(physicalDevice) << "\"" <<
+      //           std::endl;
     }
 
     VkPresentInfoKHR presentInfo{};
