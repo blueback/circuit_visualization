@@ -280,10 +280,9 @@ static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
   return curr_camera;
 }
 
-static Camera2D getCurrCameraZoomTo(Rectangle screen_rect,
-                                    Vector2 target_center, float zoom_factor,
-                                    float start_time, float end_time,
-                                    float curr_time) {
+static MAYBE_UNUSED Camera2D getCurrCameraZoomTo(
+    Rectangle screen_rect, Vector2 target_center, float zoom_factor,
+    float start_time, float end_time, float curr_time) {
   Rectangle target_rect =
       getZoomTargetRectangle(screen_rect, target_center, zoom_factor);
 
@@ -320,10 +319,9 @@ static Camera2D getCurrCameraZoomFrom(Rectangle screen_rect,
   return curr_camera;
 }
 
-static Camera2D getCurrCameraZoomFrom(Rectangle screen_rect,
-                                      Vector2 target_center, float zoom_factor,
-                                      float start_time, float end_time,
-                                      float curr_time) {
+static MAYBE_UNUSED Camera2D getCurrCameraZoomFrom(
+    Rectangle screen_rect, Vector2 target_center, float zoom_factor,
+    float start_time, float end_time, float curr_time) {
   Rectangle target_rect =
       getZoomTargetRectangle(screen_rect, target_center, zoom_factor);
 

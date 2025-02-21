@@ -23,6 +23,7 @@ enum IteratorStatus : uint8_t { IterationBreak, IterationContinue };
 #define TRY_INLINE inline __attribute__((always_inline))
 #define TRY_PACKED __attribute__((packed))
 #define TRY_NOINLINE __attribute__((noinline))
+#define MAYBE_UNUSED __attribute__((unused))
 
 void *operator new(std::size_t size);
 void operator delete(void *ptr) throw();
